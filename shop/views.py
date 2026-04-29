@@ -1,8 +1,11 @@
 from decimal import Decimal
 
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
-from .models import Category, Product
+from .cart import add_to_cart, build_cart_items, clear_cart, remove_from_cart, set_quantity
+from .models import Category, Order, OrderItem, Product
 
 
 def _seed_demo_data() -> None:
@@ -100,3 +103,99 @@ def product_detail(request, slug=None):
     product = get_object_or_404(Product, slug=slug)
     related_products = Product.objects.filter(category=product.category).exclude(id=product.id)[:4]
     return render(request, "shop/product_detail.html", {"product": product, "related_products": related_products})
+
+
+@require_POST
+def cart_add(request, product_id):
+    _seed_demo_data()
+    product = get_object_or_404(Product, id=product_id)
+    qty = int(request.POST.get("quantity", 1))
+    add_to_cart(request.session, product.id, qty)
+    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "cart"
+    return redirect(next_url)
+
+
+@require_POST
+def cart_update(request, product_id):
+    qty = int(request.POST.get("quantity", 1))
+    set_quantity(request.session, product_id, qty)
+    return redirect("cart")
+
+
+@require_POST
+def cart_remove(request, product_id):
+    remove_from_cart(request.session, product_id)
+    return redirect("cart")
+
+
+def cart_page(request):
+    items, total = build_cart_items(request.session)
+    return render(request, "shop/cart.html", {"cart_items": items, "cart_total": total})
+
+
+def checkout(request):
+    items, total = build_cart_items(request.session)
+    if not items:
+        return redirect("cart")
+
+    if request.method == "POST":
+        customer_name = request.POST.get("customer_name", "").strip()
+        phone = request.POST.get("phone", "").strip()
+        email = request.POST.get("email", "").strip()
+        address = request.POST.get("address", "").strip()
+        comment = request.POST.get("comment", "").strip()
+
+        if customer_name and phone and address:
+            order = Order.objects.create(
+                customer_name=customer_name,
+                phone=phone,
+                email=email,
+                address=address,
+                comment=comment,
+                total_price=total,
+            )
+            OrderItem.objects.bulk_create(
+                [
+                    OrderItem(
+                        order=order,
+                        product=item["product"],
+                        quantity=item["quantity"],
+                        unit_price=item["product"].price,
+                    )
+                    for item in items
+                ]
+            )
+            clear_cart(request.session)
+            return redirect("checkout_success", order_id=order.id)
+
+        return render(
+            request,
+            "shop/checkout.html",
+            {
+                "cart_items": items,
+                "cart_total": total,
+                "error": "Заполните обязательные поля: имя, телефон и адрес.",
+            },
+        )
+
+    return render(request, "shop/checkout.html", {"cart_items": items, "cart_total": total})
+
+
+def checkout_success(request, order_id):
+    order = get_object_or_404(Order, id=order_id)
+    return render(request, "shop/checkout_success.html", {"order": order})
+
+
+def search(request):
+    query = request.GET.get("q", "").strip()
+    products = Product.objects.none()
+    if query:
+        products = Product.objects.filter(
+            Q(name__icontains=query) | Q(sku__icontains=query) | Q(description__icontains=query)
+        )
+    return render(request, "shop/search.html", {"query": query, "products": products})
+
+
+def account(request):
+    orders = Order.objects.prefetch_related("items", "items__product")[:20]
+    return render(request, "shop/account.html", {"orders": orders})

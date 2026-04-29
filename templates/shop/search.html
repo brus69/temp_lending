@@ -1,0 +1,38 @@
+{% extends "shop/base.html" %}
+
+{% block title %}LendingStore - Поиск{% endblock %}
+
+{% block content %}
+<main class="vi-container mx-auto w-full space-y-5 px-4 py-8">
+  <h1 class="text-3xl font-bold text-slate-800">Поиск товаров</h1>
+  {% if query %}
+  <p class="text-sm text-slate-600">Запрос: <b>{{ query }}</b>. Найдено: {{ products|length }}</p>
+  {% else %}
+  <p class="text-sm text-slate-600">Введите запрос в строке поиска в шапке сайта.</p>
+  {% endif %}
+
+  <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    {% for product in products %}
+    <article class="vi-product-card p-3">
+      {% if product.is_best_price %}
+      <span class="inline-block rounded-md bg-sky-500 px-2 py-1 text-xs font-semibold text-white">Лучшая цена</span>
+      {% endif %}
+      <img src="{{ product.image_url }}" alt="{{ product.name }}" class="mt-2 h-36 w-full object-contain">
+      <h3 class="mt-2 text-sm font-medium">{{ product.name }}</h3>
+      <p class="mt-2 text-2xl font-bold">{{ product.price|floatformat:0 }} ₽</p>
+      <div class="mt-3 grid grid-cols-2 gap-2">
+        <form method="post" action="{% url 'cart_add' product.id %}">
+          {% csrf_token %}
+          <input type="hidden" name="quantity" value="1">
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button class="w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white">В корзину</button>
+        </form>
+        <a href="{% url 'product_detail' product.slug %}" class="w-full rounded-lg bg-slate-200 py-2 text-center text-sm font-semibold text-slate-700">Открыть</a>
+      </div>
+    </article>
+    {% empty %}
+    <p class="text-sm text-slate-500">По вашему запросу пока ничего не найдено.</p>
+    {% endfor %}
+  </section>
+</main>
+{% endblock %}

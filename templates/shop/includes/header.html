@@ -11,19 +11,105 @@
     </div>
     <span class="font-semibold text-slate-900">8 800 550-37-70</span>
   </div>
-  <div class="mx-auto flex w-full max-w-[1240px] items-center gap-3 px-4 py-3">
+  <div class="relative mx-auto flex w-full max-w-[1240px] items-center gap-3 px-4 py-3">
     <a href="/" class="rounded-xl bg-red-600 px-4 py-2 text-lg font-bold leading-none text-white">Все инструменты</a>
-    <button class="rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white">Каталог</button>
-    <div class="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-500">
-      Оригинальные товары для стройки, ремонта, производства
-    </div>
-    <div class="hidden items-center gap-2 text-xs text-slate-700 md:flex">
-      <span class="vi-nav-pill px-2 py-1">Избранное</span>
-      <span class="vi-nav-pill px-2 py-1">Сравнение</span>
-      <span class="vi-nav-pill px-2 py-1">Заказы</span>
-      <span class="vi-nav-pill px-2 py-1">Корзина</span>
+    <button type="button" data-catalog-toggle class="rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white">Каталог</button>
+    <form action="{% url 'search' %}" method="get" class="flex flex-1 items-center rounded-xl border border-slate-300 bg-slate-50 px-3 py-1">
+      <input
+        name="q"
+        value="{{ request.GET.q|default:'' }}"
+        placeholder="Оригинальные товары для стройки, ремонта, производства"
+        class="w-full bg-transparent px-1 py-1 text-sm text-slate-700 placeholder:text-slate-500 focus:outline-none"
+      >
+      <button type="submit" class="rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold text-white">Поиск</button>
+    </form>
+    <div class="hidden items-start gap-1 text-xs text-slate-700 md:flex">
+      <a href="#" class="inline-flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-md px-1 py-1 transition hover:bg-slate-100 hover:text-slate-900">
+        <svg xmlns="http://www.w3.org/2000/svg" class="block h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="m12 21-1.6-1.45C5.4 15.36 2 12.28 2 8.5A4.5 4.5 0 0 1 6.5 4C8.24 4 9.91 4.81 11 6.09A6.03 6.03 0 0 1 15.5 4 4.5 4.5 0 0 1 20 8.5c0 3.78-3.4 6.86-8.4 11.06L12 21Z"/></svg>
+        <span class="leading-none">Избранное</span>
+      </a>
+      <a href="#" class="inline-flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-md px-1 py-1 transition hover:bg-slate-100 hover:text-slate-900">
+        <svg xmlns="http://www.w3.org/2000/svg" class="block h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M7 5v14M17 5v14M10.5 8.5l-3.5 3.5 3.5 3.5M13.5 8.5 17 12l-3.5 3.5"/></svg>
+        <span class="leading-none">Сравнение</span>
+      </a>
+      <a href="{% url 'account' %}" class="inline-flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-md px-1 py-1 transition hover:bg-slate-100 hover:text-slate-900">
+        <svg xmlns="http://www.w3.org/2000/svg" class="block h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="5" y="4" width="14" height="16" rx="2" ry="2" stroke-width="1.7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M8 8h8M8 12h8M8 16h6"/></svg>
+        <span class="leading-none">Заказы</span>
+      </a>
+      <a href="{% url 'cart' %}" class="inline-flex min-w-[82px] flex-col items-center justify-center gap-1 rounded-md px-1 py-1 transition hover:bg-slate-100 hover:text-slate-900">
+        <svg xmlns="http://www.w3.org/2000/svg" class="block h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M3 4h2l1.2 7.2a2 2 0 0 0 2 1.7h7.8a2 2 0 0 0 1.9-1.4L20 7H7.2M9 18.5a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Zm8 0a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z"/></svg>
+        <span class="leading-none">Корзина ({{ cart_items_count }})</span>
+      </a>
     </div>
     <button class="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">Войти</button>
+
+    <div data-catalog-menu class="absolute left-4 right-4 top-full z-50 mt-2 hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+      <div class="grid max-h-[560px] grid-cols-[260px_1fr]">
+        <aside class="border-r border-slate-200 bg-slate-50 p-3">
+          <div class="mb-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium">Весь Ozon</div>
+          <div class="space-y-1 text-sm">
+            <a href="#" class="block rounded-lg bg-blue-100 px-3 py-2 font-semibold text-blue-700">Электроника</a>
+            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Одежда</a>
+            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Обувь</a>
+            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Дом и сад</a>
+            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Детские товары</a>
+            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Красота и здоровье</a>
+            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Бытовая техника</a>
+            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Спорт и отдых</a>
+            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Строительство и ремонт</a>
+            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Продукты питания</a>
+          </div>
+        </aside>
+
+        <section class="overflow-y-auto p-6">
+          <h3 class="text-5xl font-bold text-slate-900">Электроника</h3>
+          <div class="mt-5 grid gap-8 lg:grid-cols-3">
+            <div class="space-y-5">
+              <div>
+                <p class="text-xl font-semibold">Телефоны и смарт-часы</p>
+                <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                  <li>Смартфоны</li><li>Аксессуары для смартфонов</li><li>Смарт-часы</li><li>Фитнес-браслеты</li>
+                </ul>
+              </div>
+              <div>
+                <p class="text-xl font-semibold">Ноутбуки, планшеты и книги</p>
+                <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                  <li>Ноутбуки</li><li>Игровые ноутбуки</li><li>Планшеты</li><li>Электронные книги</li>
+                </ul>
+              </div>
+            </div>
+            <div class="space-y-5">
+              <div>
+                <p class="text-xl font-semibold">Компьютеры и периферия</p>
+                <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                  <li>Мониторы</li><li>Системные блоки</li><li>Ноутбуки</li><li>Периферия</li>
+                </ul>
+              </div>
+              <div>
+                <p class="text-xl font-semibold">Фото и видеокамеры</p>
+                <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                  <li>Экшн-камеры</li><li>Видеокамеры</li><li>Объективы</li><li>Компактные камеры</li>
+                </ul>
+              </div>
+            </div>
+            <div class="space-y-5">
+              <div>
+                <p class="text-xl font-semibold">Навигаторы</p>
+                <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                  <li>GPS-трекеры</li><li>Туристические навигаторы</li><li>Автонавигаторы</li>
+                </ul>
+              </div>
+              <div>
+                <p class="text-xl font-semibold">Умный дом</p>
+                <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                  <li>Датчики и регуляторы</li><li>Комплекты умного дома</li><li>Освещение</li><li>Розетки</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
   </div>
   <div class="mx-auto flex w-full max-w-[1240px] gap-5 overflow-x-auto px-4 py-2 text-sm font-medium text-slate-700">
     <a href="/category/" class="whitespace-nowrap text-red-600">Акции</a>

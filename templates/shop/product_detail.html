@@ -4,7 +4,15 @@
 
 {% block content %}
 <main class="vi-container mx-auto w-full space-y-5 px-4 py-8">
-  <section class="text-xs text-slate-500">Главная / Крепёж / Метизы / Метрический крепеж / Гайки / DIN 934 / Стройбат</section>
+  <nav class="text-xs text-slate-500">
+    <a href="{% url 'index' %}" class="hover:text-slate-700">Главная</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'category' %}" class="hover:text-slate-700">Крепёж</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'sub_category_by_slug' product.category.slug %}" class="hover:text-slate-700">{{ product.category.name }}</a>
+    <span class="mx-1">/</span>
+    <span class="text-slate-700">{{ product.name }}</span>
+  </nav>
   <h1 class="text-[44px] font-bold leading-tight text-slate-800">{{ product.name }}</h1>
   <section class="flex flex-wrap items-center gap-4 text-sm text-slate-600">
     <span>Код товара: <b>{{ product.sku }}</b></span>
@@ -68,7 +76,12 @@
       </div>
         <p class="mt-1 text-5xl font-bold text-slate-900">{{ product.price|floatformat:0 }} ₽ <span class="text-base font-medium">4.2 ₽/шт</span></p>
       <p class="mt-1 text-xs text-slate-500">Акция только для физических лиц</p>
-      <button class="mt-4 w-full rounded-xl bg-red-600 px-4 py-3 text-lg font-semibold text-white">🛒 В корзину</button>
+      <form method="post" action="{% url 'cart_add' product.id %}" class="mt-4">
+        {% csrf_token %}
+        <input type="hidden" name="quantity" value="1">
+        <input type="hidden" name="next" value="{% url 'cart' %}">
+        <button class="w-full rounded-xl bg-red-600 px-4 py-3 text-lg font-semibold text-white">🛒 В корзину</button>
+      </form>
       <button class="mt-3 w-full rounded-xl bg-slate-200 px-4 py-3 text-sm font-semibold text-slate-700">Быстрый заказ</button>
       <p class="mt-3 text-sm text-slate-600">53 ₽ x 4 платежа частями</p>
       <div class="mt-4 space-y-2 text-sm">

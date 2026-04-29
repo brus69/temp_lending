@@ -37,3 +37,41 @@ class Product(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class Order(models.Model):
+    STATUS_NEW = "new"
+    STATUS_PAID = "paid"
+    STATUS_SENT = "sent"
+    STATUS_DONE = "done"
+    STATUS_CHOICES = [
+        (STATUS_NEW, "Новый"),
+        (STATUS_PAID, "Оплачен"),
+        (STATUS_SENT, "Отправлен"),
+        (STATUS_DONE, "Завершен"),
+    ]
+
+    customer_name = models.CharField(max_length=120)
+    phone = models.CharField(max_length=32)
+    email = models.EmailField(blank=True)
+    address = models.CharField(max_length=255)
+    comment = models.TextField(blank=True)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_NEW)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Заказ #{self.id} - {self.customer_name}"
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self) -> str:
+        return f"{self.product.name} x {self.quantity}"

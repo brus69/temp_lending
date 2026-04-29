@@ -1,0 +1,17 @@
+{% extends "shop/base.html" %}
+
+{% block title %}LendingStore - Заказ оформлен{% endblock %}
+
+{% block content %}
+<main class="vi-container mx-auto w-full px-4 py-10">
+  <section class="rounded-2xl bg-white p-8 text-center">
+    <h1 class="text-3xl font-bold text-slate-800">Заказ успешно оформлен</h1>
+    <p class="mt-3 text-slate-600">Номер заказа: <b>#{{ order.id }}</b></p>
+    <p class="mt-1 text-slate-600">Мы свяжемся с вами по телефону {{ order.phone }}</p>
+    <div class="mt-6 flex justify-center gap-3">
+      <a href="{% url 'index' %}" class="rounded-xl bg-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">На главную</a>
+      <a href="{% url 'category' %}" class="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white">Продолжить покупки</a>
+    </div>
+  </section>
+</main>
+{% endblock %}
