@@ -7,43 +7,19 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="../../static/css/custom.css">
 </head>
-<body class="bg-[#f6f7f8] text-slate-900">
-  <header class="border-b border-slate-200 bg-white">
-    <div class="mx-auto flex w-full max-w-[1240px] items-center justify-between px-4 py-2 text-xs text-slate-600">
-      <div class="flex items-center gap-5"><span>Москва</span><span>323 магазина</span></div>
-      <div class="hidden items-center gap-5 lg:flex"><span>Получение и оплата</span><span>Сервис и поддержка</span><span>О нас</span></div>
-      <span class="font-semibold text-slate-900">8 800 550-37-70</span>
-    </div>
-    <div class="mx-auto flex w-full max-w-[1240px] items-center gap-3 px-4 py-3">
-      <a href="index.html" class="rounded-xl bg-red-600 px-4 py-2 text-lg font-bold leading-none text-white">Все инструменты</a>
-      <button class="rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white">Каталог</button>
-      <div class="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-500">Оригинальные товары для стройки, ремонта, производства</div>
-      <div class="hidden items-center gap-4 text-xs text-slate-700 md:flex"><span>Избранное</span><span>Сравнение</span><span>Заказы</span><span>Корзина</span></div>
-      <button class="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">Войти</button>
-    </div>
-    <div class="mx-auto flex w-full max-w-[1240px] gap-5 overflow-x-auto px-4 py-2 text-sm font-medium text-slate-700">
-      <a href="category.html" class="whitespace-nowrap text-red-600">Акции</a><span class="whitespace-nowrap">Инструмент</span><span class="whitespace-nowrap">Крепеж</span><span class="whitespace-nowrap">Все для сада</span><span class="whitespace-nowrap">Электрика</span><span class="whitespace-nowrap">Силовая техника</span><span class="whitespace-nowrap">Сантехника</span><button class="ml-auto whitespace-nowrap rounded-full bg-slate-100 px-4 py-1">Для юрлиц</button>
-    </div>
-  </header>
+<body class="vi-body">
+  <div data-component="header"></div>
 
-  <main class="mx-auto w-full max-w-[1240px] space-y-6 px-4 py-6">
-    <section class="overflow-hidden rounded-2xl bg-slate-700">
-      <div class="relative px-8 py-10">
-        <img src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1400&q=80" alt="Промо для профессионалов" class="absolute inset-0 h-full w-full object-cover opacity-35">
-        <div class="relative max-w-2xl">
-          <h1 class="text-4xl font-bold leading-tight text-white md:text-5xl">Всё для профессионалов и бизнеса</h1>
-          <p class="mt-4 text-xl text-slate-100 md:text-3xl">Надежно. Комплексно. Выгодно.</p>
-        </div>
-      </div>
-    </section>
+  <main class="vi-container mx-auto w-full space-y-6 px-4 py-6">
+    <div data-component="banner"></div>
 
     <section class="grid gap-3 md:grid-cols-6">
-      <article class="rounded-2xl bg-white p-4"><h3 class="text-2xl font-semibold">Климат и отопление</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=400&q=80" alt="Климат"></article>
-      <article class="rounded-2xl bg-white p-4"><h3 class="text-2xl font-semibold">Спецодежда</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=400&q=80" alt="Спецодежда"></article>
-      <article class="rounded-2xl bg-white p-4"><h3 class="text-2xl font-semibold">Все для сада</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1599685315640-3ca0f7f8df4b?auto=format&fit=crop&w=400&q=80" alt="Сад"></article>
-      <article class="rounded-2xl bg-white p-4"><h3 class="text-2xl font-semibold">Клининг</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=400&q=80" alt="Клининг"></article>
-      <article class="rounded-2xl bg-white p-4"><h3 class="text-2xl font-semibold">Сантехника</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=400&q=80" alt="Сантехника"></article>
-      <article class="rounded-2xl bg-white p-4"><h3 class="text-2xl font-semibold">Офис и дом</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=400&q=80" alt="Дом"></article>
+      <article class="vi-product-card p-4"><h3 class="text-lg font-semibold">Климат и отопление</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=400&q=80" alt="Климат"></article>
+      <article class="vi-product-card p-4"><h3 class="text-lg font-semibold">Спецодежда</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=400&q=80" alt="Спецодежда"></article>
+      <article class="vi-product-card p-4"><h3 class="text-lg font-semibold">Все для сада</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1599685315640-3ca0f7f8df4b?auto=format&fit=crop&w=400&q=80" alt="Сад"></article>
+      <article class="vi-product-card p-4"><h3 class="text-lg font-semibold">Клининг</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=400&q=80" alt="Клининг"></article>
+      <article class="vi-product-card p-4"><h3 class="text-lg font-semibold">Сантехника</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=400&q=80" alt="Сантехника"></article>
+      <article class="vi-product-card p-4"><h3 class="text-lg font-semibold">Офис и дом</h3><img class="mt-3 h-24 w-full object-contain" src="https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=400&q=80" alt="Дом"></article>
     </section>
 
     <section class="grid gap-3 md:grid-cols-[1fr_1fr_1fr_2fr]">
@@ -58,30 +34,22 @@
 
     <section>
       <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-4xl font-bold">Со скидкой для физлиц</h2>
+        <h2 class="vi-section-title">Со скидкой для физлиц</h2>
         <a href="sub-category.html" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold">Смотреть все</a>
       </div>
       <div class="grid gap-3 md:grid-cols-6">
-        <article class="rounded-2xl bg-white p-3"><img src="https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-3xl font-bold">14 549 ₽</p><p class="text-sm text-slate-600">Перфоратор</p></article>
-        <article class="rounded-2xl bg-white p-3"><img src="https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-3xl font-bold">10 894 ₽</p><p class="text-sm text-slate-600">Шлифмашина</p></article>
-        <article class="rounded-2xl bg-white p-3"><img src="https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-3xl font-bold">11 639 ₽</p><p class="text-sm text-slate-600">Пылесос</p></article>
-        <article class="rounded-2xl bg-white p-3"><img src="https://images.unsplash.com/photo-1616628182509-a5f8e4f3f1aa?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-3xl font-bold">4 960 ₽</p><p class="text-sm text-slate-600">Триммер</p></article>
-        <article class="rounded-2xl bg-white p-3"><img src="https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-3xl font-bold">4 589 ₽</p><p class="text-sm text-slate-600">Инверторный аппарат</p></article>
-        <article class="rounded-2xl bg-white p-3"><img src="https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-3xl font-bold">12 577 ₽</p><p class="text-sm text-slate-600">Шуруповерт</p></article>
+        <article class="vi-product-card p-3"><img src="https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-2xl font-bold">14 549 ₽</p><p class="text-sm text-slate-600">Перфоратор</p></article>
+        <article class="vi-product-card p-3"><img src="https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-2xl font-bold">10 894 ₽</p><p class="text-sm text-slate-600">Шлифмашина</p></article>
+        <article class="vi-product-card p-3"><img src="https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-2xl font-bold">11 639 ₽</p><p class="text-sm text-slate-600">Пылесос</p></article>
+        <article class="vi-product-card p-3"><img src="https://images.unsplash.com/photo-1616628182509-a5f8e4f3f1aa?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-2xl font-bold">4 960 ₽</p><p class="text-sm text-slate-600">Триммер</p></article>
+        <article class="vi-product-card p-3"><img src="https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-2xl font-bold">4 589 ₽</p><p class="text-sm text-slate-600">Инверторный аппарат</p></article>
+        <article class="vi-product-card p-3"><img src="https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=400&q=80" class="h-40 w-full object-contain" alt="товар"><p class="mt-2 text-2xl font-bold">12 577 ₽</p><p class="text-sm text-slate-600">Шуруповерт</p></article>
       </div>
     </section>
   </main>
 
-  <footer class="mt-10 bg-slate-100 text-slate-800">
-    <div class="mx-auto w-full max-w-[1240px] px-4 py-6">
-      <div class="mb-6 flex flex-wrap items-center gap-3 rounded-xl bg-white p-3">
-        <p class="font-semibold">Подпишитесь на рассылку и будьте в курсе! Акции, скидки, распродажи ждут!</p>
-        <input class="ml-auto min-w-[220px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Введите email">
-        <button class="rounded-lg bg-red-600 px-6 py-2 text-sm font-semibold text-white">Подписаться</button>
-      </div>
-      <p class="text-sm text-slate-500">© <span data-current-year></span> LendingStore</p>
-    </div>
-  </footer>
+  <div data-component="footer"></div>
+  <script src="../../static/js/components.js"></script>
   <script src="../../static/js/main.js"></script>
 </body>
 </html>

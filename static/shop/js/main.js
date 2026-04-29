@@ -7,4 +7,3 @@ function applyDynamicBits() {
 }
 
 document.addEventListener("DOMContentLoaded", applyDynamicBits);
-document.addEventListener("components:loaded", applyDynamicBits);

@@ -7,15 +7,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="../../static/css/custom.css">
 </head>
-<body class="bg-[#f6f7f8] text-slate-900">
-  <header class="border-b border-slate-200 bg-white">
-    <div class="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-      <a href="index.html" class="text-xl font-bold">LendingStore</a>
-      <a href="category.html" class="text-sm font-medium text-slate-700">Назад к категориям</a>
-    </div>
-  </header>
+<body class="vi-body">
+  <div data-component="header"></div>
 
-  <main class="mx-auto grid w-full max-w-[1240px] gap-5 px-4 py-8 lg:grid-cols-[300px_1fr]">
+  <main class="vi-container mx-auto grid w-full gap-5 px-4 py-8 lg:grid-cols-[300px_1fr]">
     <aside class="h-fit rounded-2xl bg-white p-5">
       <h2 class="text-xl font-semibold">Категория</h2>
       <ul class="mt-3 space-y-2 text-sm text-slate-700">
@@ -50,53 +45,53 @@
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <article class="rounded-2xl border border-slate-200 bg-white p-3">
+        <article class="vi-product-card p-3">
           <span class="inline-block rounded-md bg-sky-500 px-2 py-1 text-xs font-semibold text-white">Лучшая цена</span>
           <img src="https://images.unsplash.com/photo-1616789079464-9274d77b2d1f?auto=format&fit=crop&w=700&q=80" alt="Шайба" class="mt-2 h-36 w-full object-contain">
           <h3 class="mt-2 text-sm font-medium">GIGANT Шайба DIN9021 кузовная оцинк. M8 100 шт</h3>
           <p class="mt-2 text-3xl font-bold">270 ₽</p>
           <button class="mt-3 w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white">В корзину</button>
         </article>
-        <article class="rounded-2xl border border-slate-200 bg-white p-3">
+        <article class="vi-product-card p-3">
           <span class="inline-block rounded-md bg-sky-500 px-2 py-1 text-xs font-semibold text-white">Лучшая цена</span>
           <img src="https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=700&q=80" alt="Гайка" class="mt-2 h-36 w-full object-contain">
           <h3 class="mt-2 text-sm font-medium">Gigant Гайка DIN934 шестигранная оцинк. M8 100 шт</h3>
           <p class="mt-2 text-3xl font-bold">191 ₽</p>
           <button class="mt-3 w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white">В корзину</button>
         </article>
-        <article class="rounded-2xl border border-slate-200 bg-white p-3">
+        <article class="vi-product-card p-3">
           <span class="inline-block rounded-md bg-sky-500 px-2 py-1 text-xs font-semibold text-white">Лучшая цена</span>
           <img src="https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?auto=format&fit=crop&w=700&q=80" alt="Гайка M10" class="mt-2 h-36 w-full object-contain">
           <h3 class="mt-2 text-sm font-medium">Gigant Гайка DIN934 шестигранная оцинк. M10 50 шт</h3>
           <p class="mt-2 text-3xl font-bold">210 ₽</p>
           <button class="mt-3 w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white">В корзину</button>
         </article>
-        <article class="rounded-2xl border border-slate-200 bg-white p-3">
+        <article class="vi-product-card p-3">
           <span class="inline-block rounded-md bg-sky-500 px-2 py-1 text-xs font-semibold text-white">Лучшая цена</span>
           <img src="https://images.unsplash.com/photo-1609942072337-c3370e820d25?auto=format&fit=crop&w=700&q=80" alt="Шпилька" class="mt-2 h-36 w-full object-contain">
           <h3 class="mt-2 text-sm font-medium">Резьбовая шпилька DIN975, класс прочности 6.8</h3>
           <p class="mt-2 text-3xl font-bold">71 ₽</p>
           <button class="mt-3 w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white">В корзину</button>
         </article>
-        <article class="rounded-2xl border border-slate-200 bg-white p-3">
+        <article class="vi-product-card p-3">
           <img src="https://images.unsplash.com/photo-1616789079464-9274d77b2d1f?auto=format&fit=crop&w=700&q=80" alt="Шайба" class="h-36 w-full object-contain">
           <h3 class="mt-2 text-sm font-medium">Шайба усиленная DIN125</h3>
           <p class="mt-2 text-3xl font-bold">102 ₽</p>
           <button class="mt-3 w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white">В корзину</button>
         </article>
-        <article class="rounded-2xl border border-slate-200 bg-white p-3">
+        <article class="vi-product-card p-3">
           <img src="https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=700&q=80" alt="Гайка" class="h-36 w-full object-contain">
           <h3 class="mt-2 text-sm font-medium">Гайка оцинкованная DIN934</h3>
           <p class="mt-2 text-3xl font-bold">88 ₽</p>
           <button class="mt-3 w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white">В корзину</button>
         </article>
-        <article class="rounded-2xl border border-slate-200 bg-white p-3">
+        <article class="vi-product-card p-3">
           <img src="https://images.unsplash.com/photo-1609942072337-c3370e820d25?auto=format&fit=crop&w=700&q=80" alt="Шпилька" class="h-36 w-full object-contain">
           <h3 class="mt-2 text-sm font-medium">Болт шестигранный оцинкованный</h3>
           <p class="mt-2 text-3xl font-bold">134 ₽</p>
           <button class="mt-3 w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white">В корзину</button>
         </article>
-        <article class="rounded-2xl border border-slate-200 bg-white p-3">
+        <article class="vi-product-card p-3">
           <img src="https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?auto=format&fit=crop&w=700&q=80" alt="Крепеж" class="h-36 w-full object-contain">
           <h3 class="mt-2 text-sm font-medium">Шпилька резьбовая DIN975</h3>
           <p class="mt-2 text-3xl font-bold">96 ₽</p>
@@ -105,6 +100,8 @@
       </div>
     </section>
   </main>
+  <div data-component="footer"></div>
+  <script src="../../static/js/components.js"></script>
   <script src="../../static/js/main.js"></script>
 </body>
 </html>

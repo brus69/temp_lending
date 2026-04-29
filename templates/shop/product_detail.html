@@ -1,0 +1,127 @@
+{% extends "shop/base.html" %}
+
+{% block title %}LendingStore - Карточка товара{% endblock %}
+
+{% block content %}
+<main class="vi-container mx-auto w-full space-y-5 px-4 py-8">
+  <section class="text-xs text-slate-500">Главная / Крепёж / Метизы / Метрический крепеж / Гайки / DIN 934 / Стройбат</section>
+  <h1 class="text-[44px] font-bold leading-tight text-slate-800">{{ product.name }}</h1>
+  <section class="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+    <span>Код товара: <b>{{ product.sku }}</b></span>
+    <span class="text-red-500">★ {{ product.rating }}</span>
+    <span>({{ product.reviews_count }} отзывов)</span>
+    <span class="rounded border border-rose-200 px-2 py-0.5 text-rose-500">1 вопрос</span>
+    <span class="ml-auto">♡ В избранное</span>
+    <span>∥ Сравнить</span>
+  </section>
+
+  <section class="grid gap-6 lg:grid-cols-[1.05fr_0.95fr_0.55fr]">
+    <div>
+      <div class="mb-3 flex items-center gap-2">
+        <span class="rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Закрытая распродажа</span>
+        <span class="rounded-lg bg-sky-500 px-2 py-1 text-xs font-semibold text-white">Лучшая цена</span>
+      </div>
+      <div class="grid grid-cols-[60px_1fr] gap-3">
+        <div class="space-y-2">
+          <img src="{{ product.image_url }}" alt="мини 1" class="h-14 w-14 rounded-md border border-slate-200 bg-white object-cover">
+          <img src="{{ product.image_url }}" alt="мини 2" class="h-14 w-14 rounded-md border border-slate-200 bg-white object-cover">
+          <img src="{{ product.image_url }}" alt="мини 3" class="h-14 w-14 rounded-md border border-slate-200 bg-white object-cover">
+          <img src="{{ product.image_url }}" alt="мини 4" class="h-14 w-14 rounded-md border border-slate-200 bg-white object-cover">
+        </div>
+        <div class="rounded-xl bg-white p-2">
+          <img src="{{ product.image_url }}" alt="{{ product.name }}" class="h-[560px] w-full object-contain">
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">Лучшая цена. Ниже средней рыночной</div>
+      <div>
+        <p class="mb-2 text-sm text-slate-500">Диаметр резьбы</p>
+        <div class="flex flex-wrap gap-2">
+          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M4</button>
+          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M5</button>
+          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M6</button>
+          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M8</button>
+          <button class="rounded-xl border border-slate-700 bg-slate-100 px-3 py-1 text-sm font-semibold">M10</button>
+          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M12</button>
+          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M18</button>
+        </div>
+      </div>
+      <div class="space-y-1 text-sm text-slate-700">
+        <p>Диаметр резьбы: <b>M10</b></p>
+        <p>Шаг резьбы: <b>1.5</b></p>
+        <p>Направление резьбы: <b>правая</b></p>
+        <p>Размер под ключ: <b>17 мм</b></p>
+        <p>Фасовка: <b>50 шт</b></p>
+        <p>ГОСТ: <b>5915-70/5927-70/15526-70</b></p>
+        <p>Материал: <b>сталь</b></p>
+      </div>
+      <button class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm">Сопутствующие товары</button>
+    </div>
+
+    <aside class="rounded-2xl border-2 border-slate-300 bg-white p-4">
+      <h2 class="text-[38px] font-bold leading-tight text-slate-800">Закрытая распродажа</h2>
+      <div class="mt-3 flex items-center gap-2">
+        <span class="text-slate-400 line-through">358 ₽</span>
+        <span class="rounded bg-slate-900 px-2 py-1 text-xs font-semibold text-white">Выгода 148 ₽</span>
+      </div>
+        <p class="mt-1 text-5xl font-bold text-slate-900">{{ product.price|floatformat:0 }} ₽ <span class="text-base font-medium">4.2 ₽/шт</span></p>
+      <p class="mt-1 text-xs text-slate-500">Акция только для физических лиц</p>
+      <button class="mt-4 w-full rounded-xl bg-red-600 px-4 py-3 text-lg font-semibold text-white">🛒 В корзину</button>
+      <button class="mt-3 w-full rounded-xl bg-slate-200 px-4 py-3 text-sm font-semibold text-slate-700">Быстрый заказ</button>
+      <p class="mt-3 text-sm text-slate-600">53 ₽ x 4 платежа частями</p>
+      <div class="mt-4 space-y-2 text-sm">
+          <p class="text-green-600">&gt; {{ product.stock_store }} шт. в магазинах сегодня</p>
+          <p class="text-green-600">&gt; {{ product.stock_warehouse }} шт. есть на складе</p>
+        <p>Самовывоз: сегодня, бесплатно</p>
+        <p>Курьером: завтра, от 290 ₽</p>
+      </div>
+    </aside>
+  </section>
+
+  <section class="grid gap-6 border-t border-slate-200 pt-4 lg:grid-cols-[1fr_300px]">
+    <div class="rounded-xl bg-white p-5">
+      <div class="mb-5 flex flex-wrap gap-6 border-b border-slate-200 pb-4 text-sm font-semibold text-slate-600">
+        <span class="border-b-2 border-slate-700 pb-1 text-slate-800">ОПИСАНИЕ И ХАРАКТЕРИСТИКИ</span>
+        <span>ОТЗЫВЫ 88</span>
+        <span>СОПУТСТВУЮЩИЕ ТОВАРЫ</span>
+        <span>ВОПРОСЫ 1</span>
+        <span>СПОСОБЫ ПОЛУЧЕНИЯ</span>
+      </div>
+      <h3 class="text-3xl font-bold">Технические характеристики</h3>
+      <div class="mt-4 grid grid-cols-[1fr_1fr] gap-y-2 text-sm">
+        {% for key, value in product.specs.items %}
+        <span class="border-b border-slate-200 py-1 text-slate-500">{{ key }}</span><span class="border-b border-slate-200 py-1">{{ value }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    <aside class="space-y-4">
+      <div class="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+        <p class="font-semibold">Оригинальные товары с гарантией</p>
+        <p class="mt-2 text-slate-600">{{ product.category.name }}. Все товары категории</p>
+        <p class="mt-2">Россия - родина бренда</p>
+        <p>Китай - страна производства</p>
+      </div>
+      <div class="rounded-xl bg-white p-4 text-sm">
+        <p class="text-2xl font-semibold">Информация об упаковке</p>
+        <p class="mt-2">Единица товара: Упаковка 1 шт</p>
+        <p>Вес, кг: 0.53</p>
+        <p>Длина, мм: 40</p>
+        <p>Ширина, мм: 80</p>
+        <p>Высота, мм: 50</p>
+      </div>
+      {% if related_products %}
+      <div class="rounded-xl bg-white p-4 text-sm">
+        <p class="text-base font-semibold">Похожие товары</p>
+        <ul class="mt-2 space-y-2">
+          {% for related in related_products %}
+          <li><a class="text-slate-700 hover:text-slate-900" href="{% url 'product_detail' related.slug %}">{{ related.name }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </aside>
+  </section>
+</main>
+{% endblock %}
