@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LendingStore - Карточка товара</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../../static/css/custom.css">
+</head>
+<body class="bg-[#f6f7f8] text-slate-900">
+  <header class="border-b border-slate-200 bg-white">
+    <div class="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      <a href="index.html" class="text-xl font-bold">LendingStore</a>
+      <a href="sub-category.html" class="text-sm font-medium text-slate-700">Назад к товарам</a>
+    </div>
+  </header>
+
+  <main class="mx-auto w-full max-w-[1240px] space-y-6 px-4 py-8">
+    <section class="text-sm text-slate-500">Главная / Крепёж / Метизы / Метрический крепеж / Гайки / DIN 934 / Стройбат</section>
+    <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr_0.7fr]">
+      <div class="rounded-2xl bg-white p-4">
+        <h1 class="text-4xl font-bold">Гайка Стройбат оцинкованная DIN 934 M10 50 шт.</h1>
+        <div class="mt-4 grid grid-cols-[64px_1fr] gap-4">
+          <div class="space-y-2">
+            <img src="https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=200&q=80" alt="мини 1" class="h-14 w-14 rounded border object-cover">
+            <img src="https://images.unsplash.com/photo-1616789079464-9274d77b2d1f?auto=format&fit=crop&w=200&q=80" alt="мини 2" class="h-14 w-14 rounded border object-cover">
+            <img src="https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?auto=format&fit=crop&w=200&q=80" alt="мини 3" class="h-14 w-14 rounded border object-cover">
+          </div>
+          <img src="https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=1200&q=80" alt="Гайка" class="h-[420px] w-full object-contain">
+        </div>
+      </div>
+
+      <div class="rounded-2xl bg-white p-4 text-sm">
+        <div class="mb-4 rounded-xl bg-green-100 p-3 text-green-800">Лучшая цена. Ниже средней рыночной</div>
+        <div class="space-y-2 text-slate-700">
+          <p>Диаметр резьбы: <b>M10</b></p>
+          <p>Шаг резьбы: <b>1.5</b></p>
+          <p>Направление резьбы: <b>правая</b></p>
+          <p>Размер под ключ: <b>17 мм</b></p>
+          <p>Фасовка: <b>50 шт</b></p>
+          <p>ГОСТ: <b>5915-70</b></p>
+        </div>
+        <button class="mt-4 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-left">Сопутствующие товары</button>
+      </div>
+
+      <aside class="rounded-2xl border-2 border-slate-300 bg-white p-5">
+        <h2 class="text-4xl font-bold">Закрытая распродажа</h2>
+        <p class="mt-3 text-slate-400 line-through">358 ₽</p>
+        <p class="text-5xl font-bold">210 ₽ <span class="text-base font-medium">4.2 ₽/шт</span></p>
+        <button class="mt-4 w-full rounded-xl bg-red-600 px-4 py-3 text-lg font-semibold text-white">В корзину</button>
+        <button class="mt-3 w-full rounded-xl bg-slate-200 px-4 py-3 text-sm font-semibold text-slate-700">Быстрый заказ</button>
+        <div class="mt-5 space-y-2 text-sm text-slate-700">
+          <p class="text-green-600">&gt; 100 шт. в магазинах сегодня</p>
+          <p class="text-green-600">&gt; 100 шт. есть на складе</p>
+          <p>Самовывоз: сегодня, бесплатно</p>
+          <p>Курьером: завтра, от 290 ₽</p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid gap-6 lg:grid-cols-[1fr_300px]">
+      <div class="rounded-2xl bg-white p-6">
+        <div class="mb-5 flex gap-6 border-b border-slate-200 pb-4 text-sm font-semibold text-slate-700">
+          <span>Описание и характеристики</span><span>Отзывы 88</span><span>Сопутствующие товары</span><span>Вопросы 1</span>
+        </div>
+        <h3 class="text-2xl font-bold">Технические характеристики гайки Стройбат</h3>
+        <div class="mt-4 grid grid-cols-2 gap-y-2 text-sm">
+          <span class="text-slate-500">Диаметр резьбы</span><span>M10</span>
+          <span class="text-slate-500">Шаг резьбы</span><span>1.5</span>
+          <span class="text-slate-500">Направление резьбы</span><span>правая</span>
+          <span class="text-slate-500">Размер под ключ</span><span>17 мм</span>
+          <span class="text-slate-500">Тип фасовки</span><span>шт.</span>
+          <span class="text-slate-500">Фасовка</span><span>50 шт</span>
+          <span class="text-slate-500">DIN</span><span>934</span>
+          <span class="text-slate-500">Материал</span><span>сталь</span>
+        </div>
+      </div>
+      <aside class="space-y-4">
+        <div class="rounded-2xl bg-white p-4">
+          <p class="font-semibold">Оригинальные товары с гарантией</p>
+          <p class="mt-2 text-sm text-slate-600">Стройбат. Все товары бренда</p>
+        </div>
+        <div class="rounded-2xl bg-white p-4 text-sm">
+          <p class="font-semibold">Информация об упаковке</p>
+          <p class="mt-2">Единица товара: Упаковка 1 шт</p>
+          <p>Вес, кг: 0.53</p>
+          <p>Длина, мм: 40</p>
+        </div>
+      </aside>
+    </section>
+  </main>
+  <script src="../../static/js/main.js"></script>
+</body>
+</html>
