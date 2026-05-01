@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Category, Order, OrderItem, Product
+from .models import Category, Favorite, Order, OrderItem, Organization, Product, UserProfile
 
 
 @admin.register(Category)
@@ -29,3 +29,23 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ("status", "created_at")
     search_fields = ("customer_name", "phone", "email")
     inlines = [OrderItemInline]
+
+
+@admin.register(Favorite)
+class FavoriteAdmin(admin.ModelAdmin):
+    list_display = ("user", "product", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("user__email", "user__username", "product__name", "product__sku")
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "phone")
+    search_fields = ("user__email", "user__username", "phone")
+
+
+@admin.register(Organization)
+class OrganizationAdmin(admin.ModelAdmin):
+    list_display = ("name", "inn", "kpp", "owner", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("name", "inn", "kpp", "owner__email", "owner__username")

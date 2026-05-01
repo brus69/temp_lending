@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -75,3 +76,44 @@ class OrderItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.product.name} x {self.quantity}"
+
+
+class Favorite(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorites")
+    product = models.ForeignKey("Product", on_delete=models.CASCADE, related_name="favorited_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "product"], name="uniq_favorite_user_product"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} → {self.product_id}"
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
+    phone = models.CharField(max_length=32, blank=True)
+
+    def __str__(self) -> str:
+        return f"Профиль {self.user_id}"
+
+
+class Organization(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="organizations")
+    name = models.CharField(max_length=255)
+    inn = models.CharField(max_length=12)
+    kpp = models.CharField(max_length=9, blank=True)
+    legal_address = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "inn"], name="uniq_org_owner_inn"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.inn})"

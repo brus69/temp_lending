@@ -1,0 +1,57 @@
+{% extends "shop/base.html" %}
+
+{% block title %}LendingStore - Личные данные{% endblock %}
+
+{% block content %}
+<main class="vi-container mx-auto w-full space-y-6 px-4 py-8">
+  <nav class="text-sm text-slate-500">
+    <a href="{% url 'account' %}" class="hover:text-slate-700">Мой кабинет</a>
+    <span class="mx-1">/</span>
+    <span class="text-slate-700">Личные данные</span>
+  </nav>
+
+  <h1 class="text-3xl font-bold text-slate-800">Личные данные</h1>
+
+  {% if personal_success %}
+  <div class="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ personal_success }}</div>
+  {% endif %}
+
+  <section class="rounded-2xl bg-white p-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <h2 class="text-lg font-semibold text-slate-800">Ваши данные</h2>
+      <div class="flex flex-wrap gap-2">
+        <a href="{% url 'account_personal_data_edit' %}" class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
+          Изменить имя и телефон
+        </a>
+        <a href="{% url 'account_password_change' %}" class="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">
+          Сменить пароль
+        </a>
+      </div>
+    </div>
+    <p class="mt-2 text-sm text-slate-500">Email и логин меняются только через поддержку.</p>
+
+    <dl class="mt-6 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+      <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+        <dt class="text-slate-500">Email</dt>
+        <dd class="mt-1 font-semibold text-slate-900">{{ request.user.email|default:request.user.username }}</dd>
+      </div>
+      <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+        <dt class="text-slate-500">Логин</dt>
+        <dd class="mt-1 font-semibold text-slate-900">{{ request.user.username }}</dd>
+      </div>
+      <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+        <dt class="text-slate-500">Имя</dt>
+        <dd class="mt-1 font-semibold text-slate-900">{{ request.user.first_name|default:"—" }}</dd>
+      </div>
+      <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+        <dt class="text-slate-500">Фамилия</dt>
+        <dd class="mt-1 font-semibold text-slate-900">{{ request.user.last_name|default:"—" }}</dd>
+      </div>
+      <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 sm:col-span-2 lg:col-span-1">
+        <dt class="text-slate-500">Телефон</dt>
+        <dd class="mt-1 font-semibold text-slate-900">{{ profile.phone|default:"—" }}</dd>
+      </div>
+    </dl>
+  </section>
+</main>
+{% endblock %}

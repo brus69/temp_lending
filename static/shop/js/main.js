@@ -122,7 +122,177 @@ function initQuickOrder() {
   });
 }
 
+function getCsrfToken() {
+  const cookie = document.cookie
+    .split(";")
+    .map((v) => v.trim())
+    .find((v) => v.startsWith("csrftoken="));
+  return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+}
+
+async function postForm(url, payload) {
+  const body = new URLSearchParams(payload);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+      "X-CSRFToken": getCsrfToken(),
+    },
+    body: body.toString(),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || "Произошла ошибка. Попробуйте еще раз.");
+  }
+  return data;
+}
+
+function initAuthModal() {
+  const modal = document.querySelector("[data-auth-modal]");
+  const openButtons = document.querySelectorAll("[data-auth-open]");
+  if (!modal || openButtons.length === 0) return;
+  if (modal.dataset.initialized === "true") return;
+  modal.dataset.initialized = "true";
+
+  const dialog = modal.querySelector("[data-auth-dialog]");
+  const closeButtons = modal.querySelectorAll("[data-auth-close]");
+  const backButtons = modal.querySelectorAll("[data-auth-back]");
+  const errorBox = modal.querySelector("[data-auth-error]");
+  const emailInput = modal.querySelector("[data-auth-email-input]");
+  const passwordInput = modal.querySelector("[data-auth-password-input]");
+  const password1Input = modal.querySelector("[data-auth-password1-input]");
+  const password2Input = modal.querySelector("[data-auth-password2-input]");
+  const emailLabels = modal.querySelectorAll("[data-auth-email-label]");
+  const emailStep = modal.querySelector('[data-auth-step="email"]');
+  const loginStep = modal.querySelector('[data-auth-step="login"]');
+  const registerStep = modal.querySelector('[data-auth-step="register"]');
+  const confirmStep = modal.querySelector('[data-auth-step="confirm"]');
+  const currentPath = window.location.pathname || "/";
+
+  let currentEmail = "";
+
+  const allSteps = [emailStep, loginStep, registerStep, confirmStep];
+
+  const setOpenState = (isOpen) => {
+    modal.hidden = !isOpen;
+    modal.classList.toggle("hidden", !isOpen);
+    modal.classList.toggle("flex", isOpen);
+    modal.setAttribute("aria-hidden", String(!isOpen));
+    document.body.classList.toggle("overflow-hidden", isOpen);
+  };
+
+  const setError = (message) => {
+    if (!errorBox) return;
+    if (!message) {
+      errorBox.textContent = "";
+      errorBox.classList.add("hidden");
+      return;
+    }
+    errorBox.textContent = message;
+    errorBox.classList.remove("hidden");
+  };
+
+  const showStep = (name) => {
+    allSteps.forEach((step) => step?.classList.add("hidden"));
+    const target = modal.querySelector(`[data-auth-step="${name}"]`);
+    target?.classList.remove("hidden");
+    emailLabels.forEach((node) => {
+      node.textContent = currentEmail;
+    });
+    setError("");
+  };
+
+  const open = () => {
+    showStep("email");
+    setOpenState(true);
+    emailInput?.focus();
+  };
+
+  const close = () => {
+    setOpenState(false);
+    setError("");
+    if (emailStep instanceof HTMLFormElement) emailStep.reset();
+    if (loginStep instanceof HTMLFormElement) loginStep.reset();
+    if (registerStep instanceof HTMLFormElement) registerStep.reset();
+    currentEmail = "";
+  };
+
+  setOpenState(false);
+
+  openButtons.forEach((btn) => btn.addEventListener("click", open));
+  closeButtons.forEach((btn) => btn.addEventListener("click", close));
+  backButtons.forEach((btn) =>
+    btn.addEventListener("click", () => {
+      showStep("email");
+      emailInput?.focus();
+    }),
+  );
+
+  modal.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (dialog && dialog.contains(target)) return;
+    close();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !modal.hidden) close();
+  });
+
+  emailStep?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    currentEmail = (emailInput?.value || "").trim().toLowerCase();
+    if (!currentEmail) {
+      setError("Введите email.");
+      return;
+    }
+    try {
+      const data = await postForm("/auth/email-check/", { email: currentEmail });
+      showStep(data.exists ? "login" : "register");
+      if (data.exists) {
+        passwordInput?.focus();
+      } else {
+        password1Input?.focus();
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось проверить email.");
+    }
+  });
+
+  loginStep?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const password = passwordInput?.value || "";
+    try {
+      await postForm("/auth/login/", {
+        email: currentEmail,
+        password,
+        next: currentPath,
+      });
+      window.location.reload();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Ошибка входа.");
+    }
+  });
+
+  registerStep?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const password1 = password1Input?.value || "";
+    const password2 = password2Input?.value || "";
+    try {
+      await postForm("/auth/register/", {
+        email: currentEmail,
+        password1,
+        password2,
+      });
+      showStep("confirm");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Ошибка регистрации.");
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", applyDynamicBits);
 document.addEventListener("DOMContentLoaded", initCatalogMenu);
 document.addEventListener("DOMContentLoaded", initCartQtyForms);
 document.addEventListener("DOMContentLoaded", initQuickOrder);
+document.addEventListener("DOMContentLoaded", initAuthModal);

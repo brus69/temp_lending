@@ -19,8 +19,10 @@
     <span class="text-red-500">★ {{ product.rating }}</span>
     <span>({{ product.reviews_count }} отзывов)</span>
     <span class="rounded border border-rose-200 px-2 py-0.5 text-rose-500">1 вопрос</span>
-    <span class="ml-auto">♡ В избранное</span>
-    <span>∥ Сравнить</span>
+    <span class="ml-auto flex flex-wrap items-center gap-4">
+      {% include "shop/includes/favorite_button.html" with product=product next=request.get_full_path %}
+      <span class="text-slate-500">∥ Сравнить</span>
+    </span>
   </section>
 
   <section class="grid gap-6 lg:grid-cols-[1.05fr_0.95fr_0.55fr]">

@@ -1,0 +1,61 @@
+{% extends "shop/base.html" %}
+
+{% block title %}LendingStore - Редактирование данных{% endblock %}
+
+{% block content %}
+<main class="vi-container mx-auto w-full space-y-6 px-4 py-8">
+  <nav class="text-sm text-slate-500">
+    <a href="{% url 'account' %}" class="hover:text-slate-700">Мой кабинет</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'account_personal_data' %}" class="hover:text-slate-700">Личные данные</a>
+    <span class="mx-1">/</span>
+    <span class="text-slate-700">Редактирование</span>
+  </nav>
+
+  <h1 class="text-3xl font-bold text-slate-800">Имя и телефон</h1>
+
+  <section class="max-w-xl rounded-2xl bg-white p-6">
+    <form method="post" class="space-y-3">
+      {% csrf_token %}
+      <label class="block text-sm font-medium text-slate-700">
+        Имя
+        <input
+          type="text"
+          name="first_name"
+          value="{{ request.user.first_name }}"
+          maxlength="150"
+          autocomplete="given-name"
+          class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+        >
+      </label>
+      <label class="block text-sm font-medium text-slate-700">
+        Фамилия
+        <input
+          type="text"
+          name="last_name"
+          value="{{ request.user.last_name }}"
+          maxlength="150"
+          autocomplete="family-name"
+          class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+        >
+      </label>
+      <label class="block text-sm font-medium text-slate-700">
+        Телефон
+        <input
+          type="tel"
+          name="phone"
+          value="{{ profile.phone }}"
+          maxlength="32"
+          autocomplete="tel"
+          placeholder="+7 (___) ___-__-__"
+          class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+        >
+      </label>
+      <div class="flex flex-wrap gap-2 pt-2">
+        <a href="{% url 'account_personal_data' %}" class="rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-300">Отмена</a>
+        <button type="submit" class="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700">Сохранить</button>
+      </div>
+    </form>
+  </section>
+</main>
+{% endblock %}

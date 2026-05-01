@@ -35,7 +35,10 @@
     </div>
     <div class="grid gap-3 md:grid-cols-6">
       {% for product in promo_products %}
-      <article class="vi-product-card p-3">
+      <article class="vi-product-card relative p-3">
+        <div class="absolute right-2 top-2 z-10">
+          {% include "shop/includes/favorite_button.html" with product=product next=request.get_full_path compact=True %}
+        </div>
         <img src="{{ product.image_url }}" class="h-40 w-full object-contain" alt="{{ product.name }}">
         <p class="mt-2 text-2xl font-bold">{{ product.price|floatformat:0 }} ₽</p>
         <p class="text-sm text-slate-600">{{ product.name }}</p>

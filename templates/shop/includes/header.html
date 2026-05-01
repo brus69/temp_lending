@@ -24,10 +24,20 @@
       <button type="submit" class="rounded-lg bg-slate-700 px-3 py-1 text-xs font-semibold text-white">Поиск</button>
     </form>
     <div class="hidden items-start gap-1 text-xs text-slate-700 md:flex">
-      <a href="#" class="inline-flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-md px-1 py-1 transition hover:bg-slate-100 hover:text-slate-900">
+      {% if request.user.is_authenticated %}
+      <a href="{% url 'account_favorites' %}" class="relative inline-flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-md px-1 py-1 transition hover:bg-slate-100 hover:text-slate-900">
         <svg xmlns="http://www.w3.org/2000/svg" class="block h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="m12 21-1.6-1.45C5.4 15.36 2 12.28 2 8.5A4.5 4.5 0 0 1 6.5 4C8.24 4 9.91 4.81 11 6.09A6.03 6.03 0 0 1 15.5 4 4.5 4.5 0 0 1 20 8.5c0 3.78-3.4 6.86-8.4 11.06L12 21Z"/></svg>
         <span class="leading-none">Избранное</span>
+        {% if favorites_count %}
+        <span class="absolute right-0 top-0 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white">{{ favorites_count }}</span>
+        {% endif %}
       </a>
+      {% else %}
+      <button type="button" data-auth-open class="inline-flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-md px-1 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900">
+        <svg xmlns="http://www.w3.org/2000/svg" class="block h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="m12 21-1.6-1.45C5.4 15.36 2 12.28 2 8.5A4.5 4.5 0 0 1 6.5 4C8.24 4 9.91 4.81 11 6.09A6.03 6.03 0 0 1 15.5 4 4.5 4.5 0 0 1 20 8.5c0 3.78-3.4 6.86-8.4 11.06L12 21Z"/></svg>
+        <span class="leading-none">Избранное</span>
+      </button>
+      {% endif %}
       <a href="#" class="inline-flex min-w-[72px] flex-col items-center justify-center gap-1 rounded-md px-1 py-1 transition hover:bg-slate-100 hover:text-slate-900">
         <svg xmlns="http://www.w3.org/2000/svg" class="block h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M7 5v14M17 5v14M10.5 8.5l-3.5 3.5 3.5 3.5M13.5 8.5 17 12l-3.5 3.5"/></svg>
         <span class="leading-none">Сравнение</span>
@@ -41,7 +51,45 @@
         <span class="leading-none">Корзина ({{ cart_items_count }})</span>
       </a>
     </div>
-    <button class="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">Войти</button>
+    {% if request.user.is_authenticated %}
+    <div class="group relative">
+      <button
+        type="button"
+        class="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700"
+      >
+        {{ request.user.email|default:request.user.username }}
+      </button>
+      <div class="absolute right-0 top-full z-50 hidden w-[320px] pt-2 group-hover:block group-focus-within:block">
+        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
+          <div class="space-y-1 text-sm text-slate-700">
+            <a href="{% url 'account' %}" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Мой кабинет</a>
+            <a href="{% url 'account_personal_data' %}" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Личные данные</a>
+            <a href="{% url 'account_organizations' %}" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Мои организации</a>
+            <a href="{% url 'account_orders' %}" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Мои заказы</a>
+            <a href="{% url 'account_favorites' %}" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Избранное{% if favorites_count %} ({{ favorites_count }}){% endif %}</a>
+            <form action="{% url 'auth_logout' %}" method="post">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.path }}">
+              <button type="submit" class="block w-full rounded-lg px-3 py-2 text-left hover:bg-slate-100">Выход</button>
+            </form>
+          </div>
+          <hr class="my-3 border-slate-200">
+          <a href="{% url 'account_organizations' %}?create=1" class="block w-full rounded-xl bg-slate-100 px-3 py-2 text-center text-sm font-semibold text-slate-800 hover:bg-slate-200">+ Добавить новую организацию</a>
+          <p class="mt-2 text-xs leading-relaxed text-slate-600">
+            Заказывайте как юрлицо и получайте вычет до 22% НДС
+          </p>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <button
+      type="button"
+      data-auth-open
+      class="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700"
+    >
+      Войти
+    </button>
+    {% endif %}
 
     <div data-catalog-menu class="absolute left-4 right-4 top-full z-50 mt-2 hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
       <div class="grid max-h-[560px] grid-cols-[260px_1fr]">
@@ -123,3 +171,57 @@
     <button class="ml-auto whitespace-nowrap rounded-full bg-slate-100 px-4 py-1">Для юрлиц</button>
   </div>
 </header>
+{% if not request.user.is_authenticated %}
+<div data-auth-modal hidden class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4" aria-hidden="true">
+  <div data-auth-dialog class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+    <div class="mb-4 flex items-start justify-between gap-4">
+      <h3 class="text-2xl font-semibold text-slate-900">Вход или регистрация</h3>
+      <button type="button" data-auth-close class="rounded-md px-2 py-1 text-xl leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-700">×</button>
+    </div>
+
+    <div data-auth-error class="mb-3 hidden rounded-lg bg-red-100 px-3 py-2 text-sm text-red-700"></div>
+
+    <form data-auth-step="email" class="space-y-3">
+      <label class="block text-sm font-medium text-slate-700">
+        Email
+        <input type="email" data-auth-email-input required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none">
+      </label>
+      <button type="submit" class="w-full rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700">Продолжить</button>
+    </form>
+
+    <form data-auth-step="login" class="hidden space-y-3">
+      <p class="text-sm text-slate-600">Войдите в аккаунт для <span data-auth-email-label class="font-medium text-slate-800"></span>.</p>
+      <label class="block text-sm font-medium text-slate-700">
+        Пароль
+        <input type="password" data-auth-password-input required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none">
+      </label>
+      <div class="flex gap-2">
+        <button type="button" data-auth-back class="flex-1 rounded-xl bg-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-300">Назад</button>
+        <button type="submit" class="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700">Войти</button>
+      </div>
+    </form>
+
+    <form data-auth-step="register" class="hidden space-y-3">
+      <p class="text-sm text-slate-600">Пользователь не найден. Зарегистрируйтесь для <span data-auth-email-label class="font-medium text-slate-800"></span>.</p>
+      <label class="block text-sm font-medium text-slate-700">
+        Пароль
+        <input type="password" data-auth-password1-input required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none">
+      </label>
+      <label class="block text-sm font-medium text-slate-700">
+        Повторите пароль
+        <input type="password" data-auth-password2-input required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none">
+      </label>
+      <div class="flex gap-2">
+        <button type="button" data-auth-back class="flex-1 rounded-xl bg-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-300">Назад</button>
+        <button type="submit" class="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700">Продолжить</button>
+      </div>
+    </form>
+
+    <div data-auth-step="confirm" class="hidden space-y-3 text-sm text-slate-700">
+      <p>Профиль создан для <span data-auth-email-label class="font-medium text-slate-800"></span>.</p>
+      <p>Подтвердите email: мы отправили письмо с инструкцией по подтверждению.</p>
+      <button type="button" data-auth-close class="w-full rounded-xl bg-slate-200 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-300">Закрыть</button>
+    </div>
+  </div>
+</div>
+{% endif %}

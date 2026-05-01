@@ -1,0 +1,28 @@
+{# Требует в контексте: request, favorite_product_ids; параметры: product, next (опционально), compact (опционально) #}
+{% firstof next request.path as fav_next %}
+{% if request.user.is_authenticated %}
+<form method="post" action="{% url 'favorite_toggle' product.id %}" class="{% if compact %}inline-block{% else %}inline-flex items-center{% endif %}">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ fav_next }}">
+  <button
+    type="submit"
+    class="{% if compact %}flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-lg shadow-sm ring-1 ring-slate-200 hover:bg-red-50{% else %}rounded-lg px-2 py-1 text-sm font-medium hover:bg-red-50{% endif %} {% if product.id in favorite_product_ids %}text-red-600{% else %}text-slate-600{% endif %}"
+    title="{% if product.id in favorite_product_ids %}Убрать из избранного{% else %}В избранное{% endif %}"
+  >
+    {% if compact %}
+      {% if product.id in favorite_product_ids %}♥{% else %}♡{% endif %}
+    {% else %}
+      {% if product.id in favorite_product_ids %}♥ В избранном{% else %}♡ В избранное{% endif %}
+    {% endif %}
+  </button>
+</form>
+{% else %}
+<button
+  type="button"
+  data-auth-open
+  class="{% if compact %}flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-lg shadow-sm ring-1 ring-slate-200{% else %}rounded-lg px-2 py-1 text-sm font-medium{% endif %} text-slate-600 hover:bg-slate-100"
+  title="Войдите, чтобы добавить в избранное"
+>
+  {% if compact %}♡{% else %}♡ В избранное{% endif %}
+</button>
+{% endif %}
