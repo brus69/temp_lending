@@ -62,6 +62,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "/static/"
+# Боевой UI обслуживается Django из templates/ и static/shop/.
+# Каталог frontend/ — отдельный HTML-прототип; runserver использует только пути выше.
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

@@ -1,0 +1,42 @@
+{# product, next, compact (optional, default False for detail styling) #}
+<form
+  method="post"
+  action="{% url 'cart_add' product.id %}"
+  data-cart-qty-form
+  class="{% if compact %}mt-3 flex flex-wrap items-stretch gap-2{% else %}mt-4 flex flex-wrap items-stretch gap-2{% endif %}"
+>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="flex shrink-0 items-center rounded-xl border border-slate-300 bg-white">
+    <button
+      type="button"
+      data-qty-dec
+      class="{% if compact %}px-2 py-2 text-base{% else %}px-3 py-3 text-lg{% endif %} font-semibold text-slate-600 hover:bg-slate-100"
+      aria-label="Меньше"
+    >
+      −
+    </button>
+    <input
+      type="number"
+      name="quantity"
+      min="1"
+      value="1"
+      data-qty-input
+      class="{% if compact %}w-12 py-1.5 text-sm{% else %}w-14 py-2 text-base{% endif %} border-x border-slate-200 text-center font-semibold focus:outline-none"
+    >
+    <button
+      type="button"
+      data-qty-inc
+      class="{% if compact %}px-2 py-2 text-base{% else %}px-3 py-3 text-lg{% endif %} font-semibold text-slate-600 hover:bg-slate-100"
+      aria-label="Больше"
+    >
+      +
+    </button>
+  </div>
+  <button
+    type="submit"
+    class="{% if compact %}min-w-0 flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white{% else %}min-w-0 flex-1 rounded-xl bg-red-600 px-4 py-3 text-lg font-semibold text-white{% endif %}"
+  >
+    {% if compact %}В корзину{% else %}🛒 В корзину{% endif %}
+  </button>
+</form>
