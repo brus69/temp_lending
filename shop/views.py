@@ -342,11 +342,13 @@ def account_personal_data_edit(request):
         first_name = (request.POST.get("first_name") or "").strip()
         last_name = (request.POST.get("last_name") or "").strip()
         phone = (request.POST.get("phone") or "").strip()
+        delivery_address = (request.POST.get("delivery_address") or "").strip()[:2000]
         user.first_name = first_name[:150]
         user.last_name = last_name[:150]
         user.save(update_fields=["first_name", "last_name"])
         profile.phone = phone[:32]
-        profile.save(update_fields=["phone"])
+        profile.delivery_address = delivery_address
+        profile.save(update_fields=["phone", "delivery_address"])
         return redirect(f"{reverse('account_personal_data')}?notice=profile_saved")
 
     return render(

@@ -1,0 +1,34 @@
+{# product; optional listing_price_class (default mt-2 text-2xl font-bold) #}
+<article class="vi-product-card relative flex flex-col p-3">
+  <div class="absolute right-2 top-2 z-10">
+    {% include "shop/includes/favorite_button.html" with product=product next=request.get_full_path compact=True %}
+  </div>
+  {% if product.is_best_price %}
+  <span class="inline-block rounded-md bg-sky-500 px-2 py-1 text-xs font-semibold text-white">Лучшая цена</span>
+  {% endif %}
+  <a
+    href="{% url 'product_detail' product.slug %}"
+    class="mt-2 block outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+  >
+    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="h-36 w-full object-contain" loading="lazy">
+  </a>
+  <a
+    href="{% url 'product_detail' product.slug %}"
+    class="mt-2 block text-sm font-medium text-slate-900 no-underline transition-colors hover:text-red-600"
+  >
+    {{ product.name }}
+  </a>
+  <p class="mt-2 flex flex-wrap items-center gap-x-1 text-xs text-slate-600">
+    <span class="text-amber-500" aria-hidden="true">★</span>
+    <span>{{ product.rating|floatformat:1 }}</span>
+    <span class="text-slate-400">·</span>
+    <span>{{ product.reviews_count }} отзывов</span>
+  </p>
+  {% with qty=product.stock_store|add:product.stock_warehouse %}
+  <p class="mt-1 text-xs text-slate-600">
+    {% if qty > 0 %}В наличии: {{ qty }} шт.{% else %}Нет в наличии{% endif %}
+  </p>
+  {% endwith %}
+  <p class="{% firstof listing_price_class "mt-2 text-2xl font-bold text-slate-900" %}">{{ product.price|floatformat:0 }} ₽</p>
+  {% include "shop/includes/cart_add_form.html" with product=product next=request.get_full_path compact=True %}
+</article>

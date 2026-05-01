@@ -40,8 +40,8 @@ class FavoriteAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "phone")
-    search_fields = ("user__email", "user__username", "phone")
+    list_display = ("user", "phone", "delivery_address")
+    search_fields = ("user__email", "user__username", "phone", "delivery_address")
 
 
 @admin.register(Organization)

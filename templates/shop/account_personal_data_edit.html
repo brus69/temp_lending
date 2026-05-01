@@ -12,7 +12,7 @@
     <span class="text-slate-700">Редактирование</span>
   </nav>
 
-  <h1 class="text-3xl font-bold text-slate-800">Имя и телефон</h1>
+  <h1 class="text-3xl font-bold text-slate-800">Контакты и адрес доставки</h1>
 
   <section class="max-w-xl rounded-2xl bg-white p-6">
     <form method="post" class="space-y-3">
@@ -50,6 +50,17 @@
           placeholder="+7 (___) ___-__-__"
           class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
         >
+      </label>
+      <label class="block text-sm font-medium text-slate-700">
+        Адрес доставки
+        <textarea
+          name="delivery_address"
+          rows="4"
+          maxlength="2000"
+          autocomplete="street-address"
+          placeholder="Город, улица, дом, квартира, индекс"
+          class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+        >{{ profile.delivery_address }}</textarea>
       </label>
       <div class="flex flex-wrap gap-2 pt-2">
         <a href="{% url 'account_personal_data' %}" class="rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-300">Отмена</a>

@@ -21,7 +21,7 @@
       <h2 class="text-lg font-semibold text-slate-800">Ваши данные</h2>
       <div class="flex flex-wrap gap-2">
         <a href="{% url 'account_personal_data_edit' %}" class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
-          Изменить имя и телефон
+          Изменить контактные данные и адрес
         </a>
         <a href="{% url 'account_password_change' %}" class="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">
           Сменить пароль
@@ -50,6 +50,10 @@
       <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 sm:col-span-2 lg:col-span-1">
         <dt class="text-slate-500">Телефон</dt>
         <dd class="mt-1 font-semibold text-slate-900">{{ profile.phone|default:"—" }}</dd>
+      </div>
+      <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 sm:col-span-2 lg:col-span-3">
+        <dt class="text-slate-500">Адрес доставки</dt>
+        <dd class="mt-1 whitespace-pre-wrap font-semibold text-slate-900">{{ profile.delivery_address|default:"—" }}</dd>
       </div>
     </dl>
   </section>

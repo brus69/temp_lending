@@ -96,6 +96,7 @@ class Favorite(models.Model):
 class UserProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     phone = models.CharField(max_length=32, blank=True)
+    delivery_address = models.TextField(blank=True, verbose_name="Адрес доставки")
 
     def __str__(self) -> str:
         return f"Профиль {self.user_id}"

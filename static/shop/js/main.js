@@ -291,8 +291,255 @@ function initAuthModal() {
   });
 }
 
+/** Административные центры субъектов РФ, для быстрого выбора и подсказок поиска */
+const REGIONAL_CENTERS_RU = [
+  "Абакан",
+  "Анадырь",
+  "Архангельск",
+  "Астрахань",
+  "Барнаул",
+  "Белгород",
+  "Благовещенск",
+  "Брянск",
+  "Великий Новгород",
+  "Владивосток",
+  "Владикавказ",
+  "Владимир",
+  "Волгоград",
+  "Вологда",
+  "Воронеж",
+  "Горно-Алтайск",
+  "Грозный",
+  "Екатеринбург",
+  "Иваново",
+  "Ижевск",
+  "Иркутск",
+  "Йошкар-Ола",
+  "Казань",
+  "Калининград",
+  "Калуга",
+  "Кемерово",
+  "Киров",
+  "Кострома",
+  "Краснодар",
+  "Красноярск",
+  "Курган",
+  "Курск",
+  "Кызыл",
+  "Липецк",
+  "Магас",
+  "Майкоп",
+  "Махачкала",
+  "Москва",
+  "Мурманск",
+  "Нальчик",
+  "Нарьян-Мар",
+  "Нижний Новгород",
+  "Новосибирск",
+  "Омск",
+  "Орёл",
+  "Оренбург",
+  "Пенза",
+  "Пермь",
+  "Петрозаводск",
+  "Петропавловск-Камчатский",
+  "Псков",
+  "Ростов-на-Дону",
+  "Рязань",
+  "Салехард",
+  "Самара",
+  "Санкт-Петербург",
+  "Саранск",
+  "Саратов",
+  "Севастополь",
+  "Симферополь",
+  "Смоленск",
+  "Ставрополь",
+  "Сыктывкар",
+  "Тамбов",
+  "Тверь",
+  "Томск",
+  "Тула",
+  "Тюмень",
+  "Улан-Удэ",
+  "Ульяновск",
+  "Уфа",
+  "Хабаровск",
+  "Ханты-Мансийск",
+  "Чебоксары",
+  "Челябинск",
+  "Черкесск",
+  "Чита",
+  "Элиста",
+  "Южно-Сахалинск",
+  "Якутск",
+  "Ярославль",
+].sort((a, b) => a.localeCompare(b, "ru"));
+
+/** Порядок крупных городов как на референсе, остальные — ниже по алфавиту */
+const CITY_MODAL_PRIORITY = [
+  "Москва",
+  "Санкт-Петербург",
+  "Нижний Новгород",
+  "Екатеринбург",
+  "Челябинск",
+  "Краснодар",
+  "Пермь",
+  "Воронеж",
+  "Самара",
+  "Казань",
+  "Волгоград",
+  "Новосибирск",
+  "Ростов-на-Дону",
+  "Саратов",
+];
+
+function citiesForModalList() {
+  const prioritySet = new Set(CITY_MODAL_PRIORITY);
+  const rest = REGIONAL_CENTERS_RU.filter((c) => !prioritySet.has(c));
+  return [...CITY_MODAL_PRIORITY.filter((c) => REGIONAL_CENTERS_RU.includes(c)), ...rest];
+}
+
+const CITY_STORAGE_KEY = "shop_selected_city";
+const DEFAULT_CITY_LABEL = "Москва";
+
+function initCityPicker() {
+  const modal = document.querySelector("[data-city-modal]");
+  const label = document.querySelector("[data-city-label]");
+  const openBtn = document.querySelector("[data-city-open]");
+  if (!modal || !label || !openBtn) return;
+  if (modal.dataset.initialized === "true") return;
+  modal.dataset.initialized = "true";
+
+  const dialog = modal.querySelector("[data-city-dialog]");
+  const searchInput = modal.querySelector("[data-city-search]");
+  const resultsEl = modal.querySelector("[data-city-results]");
+  const mainListEl = modal.querySelector("[data-city-main-list]");
+  const closeBtn = modal.querySelector("[data-city-close]");
+
+  const readStoredCity = () => {
+    try {
+      const v = localStorage.getItem(CITY_STORAGE_KEY);
+      return v && v.trim() ? v.trim() : DEFAULT_CITY_LABEL;
+    } catch {
+      return DEFAULT_CITY_LABEL;
+    }
+  };
+
+  const setOpenState = (isOpen) => {
+    modal.hidden = !isOpen;
+    modal.classList.toggle("hidden", !isOpen);
+    modal.classList.toggle("flex", isOpen);
+    modal.setAttribute("aria-hidden", String(!isOpen));
+    document.body.classList.toggle("overflow-hidden", isOpen);
+  };
+
+  const setMainListHidden = (hidden) => {
+    if (!mainListEl) return;
+    mainListEl.classList.toggle("hidden", hidden);
+    mainListEl.setAttribute("aria-hidden", hidden ? "true" : "false");
+  };
+
+  const hideResults = () => {
+    if (!resultsEl) return;
+    resultsEl.innerHTML = "";
+    resultsEl.classList.add("hidden");
+    setMainListHidden(false);
+  };
+
+  const cityRowClass =
+    "block w-full rounded-lg px-3 py-2.5 text-left text-sm text-slate-900 hover:bg-slate-100";
+
+  const renderResults = (query) => {
+    if (!resultsEl) return;
+    const q = query.trim().toLowerCase();
+    resultsEl.innerHTML = "";
+    if (!q) {
+      hideResults();
+      return;
+    }
+    setMainListHidden(true);
+    const matches = REGIONAL_CENTERS_RU.filter((c) =>
+      c.toLowerCase().includes(q),
+    );
+    if (!matches.length) {
+      resultsEl.classList.remove("hidden");
+      const empty = document.createElement("p");
+      empty.className = "px-3 py-2 text-sm text-slate-500";
+      empty.textContent = "Ничего не найдено";
+      resultsEl.appendChild(empty);
+      return;
+    }
+    resultsEl.classList.remove("hidden");
+    const slice = matches.slice(0, 60);
+    slice.forEach((city) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = cityRowClass;
+      btn.textContent = city;
+      btn.addEventListener("click", () => selectCity(city));
+      resultsEl.appendChild(btn);
+    });
+  };
+
+  const selectCity = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    try {
+      localStorage.setItem(CITY_STORAGE_KEY, trimmed);
+    } catch {
+      /* ignore quota / private mode */
+    }
+    label.textContent = trimmed;
+    setOpenState(false);
+    if (searchInput) searchInput.value = "";
+    hideResults();
+  };
+
+  label.textContent = readStoredCity();
+
+  if (mainListEl) {
+    citiesForModalList().forEach((city) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = cityRowClass;
+      btn.textContent = city;
+      btn.addEventListener("click", () => selectCity(city));
+      mainListEl.appendChild(btn);
+    });
+  }
+
+  openBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (searchInput) searchInput.value = "";
+    hideResults();
+    setOpenState(true);
+    window.requestAnimationFrame(() => searchInput?.focus());
+  });
+
+  closeBtn?.addEventListener("click", () => setOpenState(false));
+
+  modal.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (dialog && dialog.contains(target)) return;
+    setOpenState(false);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !modal.hidden) setOpenState(false);
+  });
+
+  searchInput?.addEventListener("input", () => {
+    renderResults(searchInput.value);
+  });
+
+  setOpenState(false);
+}
+
 document.addEventListener("DOMContentLoaded", applyDynamicBits);
 document.addEventListener("DOMContentLoaded", initCatalogMenu);
 document.addEventListener("DOMContentLoaded", initCartQtyForms);
 document.addEventListener("DOMContentLoaded", initQuickOrder);
 document.addEventListener("DOMContentLoaded", initAuthModal);
+document.addEventListener("DOMContentLoaded", initCityPicker);
