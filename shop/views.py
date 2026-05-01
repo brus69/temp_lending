@@ -1,18 +1,34 @@
 from decimal import Decimal
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .cart import add_to_cart, build_cart_items, clear_cart, remove_from_cart, set_quantity
-from .models import Category, Favorite, Order, OrderItem, Organization, Product, UserProfile
+from .forms import ProductQuestionForm, ProductReviewForm, validate_review_image_files
+from .models import (
+    Category,
+    Favorite,
+    Order,
+    OrderItem,
+    Organization,
+    Product,
+    ProductQuestion,
+    ProductReview,
+    ProductReviewPhoto,
+    UserProfile,
+)
 
 EMAIL_CONFIRM_MAX_AGE_SECONDS = 60 * 60 * 24
 
@@ -53,64 +69,158 @@ def _send_confirmation_email(request, user: User) -> None:
     )
 
 
-def _seed_demo_data() -> None:
-    if Category.objects.exists():
+def _seed_reviews_questions_if_needed() -> None:
+    """Тестовые отзывы и вопросы — один раз при пустой таблице отзывов."""
+    if ProductReview.objects.exists():
+        return
+    products = list(Product.objects.order_by("id")[:4])
+    if not products:
         return
 
-    categories_data = [
-        ("Метизы", "metizy", 438150, "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=260&q=80"),
-        ("Скобяные изделия и фурнитура", "furnitura", 104522, "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=260&q=80"),
-        ("Специальный крепеж", "special-krepezh", 96788, "https://images.unsplash.com/photo-1599948128020-9a44505b3a80?auto=format&fit=crop&w=260&q=80"),
-        ("Такелаж", "takelazh", 64732, "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=260&q=80"),
-        ("Пластиковый крепеж", "plastic-krepezh", 28878, "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=260&q=80"),
-        ("Автомобильный крепеж", "auto-krepezh", 5246, "https://images.unsplash.com/photo-1611835151646-5a9df7f11463?auto=format&fit=crop&w=260&q=80"),
-        ("Монтажные ленты", "montazhnye-lenty", 17715, "https://images.unsplash.com/photo-1585298723682-7115561c51b7?auto=format&fit=crop&w=260&q=80"),
-        ("Химический", "chemical", 13699, "https://images.unsplash.com/photo-1620432468734-65f36cf65dfa?auto=format&fit=crop&w=260&q=80"),
-    ]
-    categories = []
-    for idx, (name, slug, count, image_url) in enumerate(categories_data, start=1):
-        categories.append(
-            Category.objects.create(
+    def ensure_demo_user(username: str, email: str, first_name: str = "") -> User:
+        user, _created = User.objects.get_or_create(
+            username=username,
+            defaults={
+                "email": email,
+                "first_name": first_name,
+                "is_active": True,
+            },
+        )
+        if not user.is_active:
+            user.is_active = True
+            user.save(update_fields=["is_active"])
+        if email and user.email != email:
+            user.email = email
+            user.save(update_fields=["email"])
+        if first_name and not user.first_name:
+            user.first_name = first_name
+            user.save(update_fields=["first_name"])
+        if not user.has_usable_password():
+            user.set_password("demo123")
+            user.save()
+        return user
+
+    u1 = ensure_demo_user("demo_reviewer_1", "demo_reviewer_1@test.com", "Алексей")
+    u2 = ensure_demo_user("demo_reviewer_2", "demo_reviewer_2@test.com", "Марина")
+
+    p0 = products[0]
+    r1 = ProductReview.objects.create(
+        product=p0,
+        user=u1,
+        rating=5,
+        text="Отличное качество резьбы, комплект полный. Заказываю не первый раз.",
+    )
+    ProductReview.objects.create(
+        product=p0,
+        user=u2,
+        rating=4,
+        text="Нормальные гайки, упаковка целая. Одну звезду сняла за цену без акции.",
+    )
+
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+
+        buf = BytesIO()
+        Image.new("RGB", (120, 120), color=(220, 230, 240)).save(buf, format="PNG")
+        buf.seek(0)
+        ProductReviewPhoto.objects.create(
+            review=r1,
+            image=ContentFile(buf.read(), name="demo_review_1.png"),
+        )
+        buf2 = BytesIO()
+        Image.new("RGB", (100, 100), color=(180, 200, 180)).save(buf2, format="PNG")
+        buf2.seek(0)
+        ProductReviewPhoto.objects.create(
+            review=r1,
+            image=ContentFile(buf2.read(), name="demo_review_2.png"),
+        )
+    except Exception:
+        pass
+
+    if len(products) > 1:
+        ProductReview.objects.create(
+            product=products[1],
+            user=u1,
+            rating=5,
+            text="Шайбы ровные, без заусенцев. Рекомендую.",
+        )
+
+    ProductQuestion.objects.create(
+        product=p0,
+        user=u2,
+        text="Подойдёт ли для оцинкованного профиля на улице?",
+        answer_text="Да, покрытие цинка рассчитано на открытое использование при типовых условиях.",
+        answered_at=timezone.now(),
+    )
+    ProductQuestion.objects.create(
+        product=p0,
+        user=u1,
+        text="Есть ли сертификат соответствия?",
+    )
+
+    for p in products:
+        p.refresh_review_aggregate()
+
+
+def _seed_demo_data() -> None:
+    if not Category.objects.exists():
+        categories_data = [
+            ("Метизы", "metizy", 438150, "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=260&q=80"),
+            ("Скобяные изделия и фурнитура", "furnitura", 104522, "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=260&q=80"),
+            ("Специальный крепеж", "special-krepezh", 96788, "https://images.unsplash.com/photo-1599948128020-9a44505b3a80?auto=format&fit=crop&w=260&q=80"),
+            ("Такелаж", "takelazh", 64732, "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=260&q=80"),
+            ("Пластиковый крепеж", "plastic-krepezh", 28878, "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=260&q=80"),
+            ("Автомобильный крепеж", "auto-krepezh", 5246, "https://images.unsplash.com/photo-1611835151646-5a9df7f11463?auto=format&fit=crop&w=260&q=80"),
+            ("Монтажные ленты", "montazhnye-lenty", 17715, "https://images.unsplash.com/photo-1585298723682-7115561c51b7?auto=format&fit=crop&w=260&q=80"),
+            ("Химический", "chemical", 13699, "https://images.unsplash.com/photo-1620432468734-65f36cf65dfa?auto=format&fit=crop&w=260&q=80"),
+        ]
+        categories = []
+        for idx, (name, slug, count, image_url) in enumerate(categories_data, start=1):
+            categories.append(
+                Category.objects.create(
+                    name=name,
+                    slug=slug,
+                    product_count=count,
+                    image_url=image_url,
+                    sort_order=idx,
+                )
+            )
+
+        metizy = categories[0]
+        products_data = [
+            ("Гайка DIN934 оцинкованная M10 50 шт", "gaika-din934-m10", "SKU-015361", Decimal("210.00"), Decimal("358.00"), "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=1200&q=80"),
+            ("Шайба DIN9021 кузовная M8 100 шт", "shaiba-din9021-m8", "SKU-015362", Decimal("270.00"), Decimal("377.00"), "https://images.unsplash.com/photo-1616789079464-9274d77b2d1f?auto=format&fit=crop&w=700&q=80"),
+            ("Гайка DIN934 оцинкованная M8 100 шт", "gaika-din934-m8", "SKU-015363", Decimal("191.00"), Decimal("314.00"), "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?auto=format&fit=crop&w=700&q=80"),
+            ("Шпилька резьбовая DIN975", "shpilka-din975", "SKU-015364", Decimal("71.00"), Decimal("154.00"), "https://images.unsplash.com/photo-1609942072337-c3370e820d25?auto=format&fit=crop&w=700&q=80"),
+        ]
+
+        for name, slug, sku, price, old_price, image_url in products_data:
+            Product.objects.create(
+                category=metizy,
                 name=name,
                 slug=slug,
-                product_count=count,
+                sku=sku,
+                price=price,
+                old_price=old_price,
                 image_url=image_url,
-                sort_order=idx,
+                description="Надежный крепеж для строительных и монтажных задач.",
+                specs={
+                    "Диаметр резьбы": "M10",
+                    "Шаг резьбы": "1.5",
+                    "Направление резьбы": "правая",
+                    "Размер под ключ": "17 мм",
+                    "Фасовка": "50 шт",
+                    "DIN": "934",
+                    "Материал": "сталь",
+                    "Покрытие": "цинк",
+                },
+                stock_store=120,
+                stock_warehouse=260,
             )
-        )
 
-    metizy = categories[0]
-    products_data = [
-        ("Гайка DIN934 оцинкованная M10 50 шт", "gaika-din934-m10", "SKU-015361", Decimal("210.00"), Decimal("358.00"), "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=1200&q=80"),
-        ("Шайба DIN9021 кузовная M8 100 шт", "shaiba-din9021-m8", "SKU-015362", Decimal("270.00"), Decimal("377.00"), "https://images.unsplash.com/photo-1616789079464-9274d77b2d1f?auto=format&fit=crop&w=700&q=80"),
-        ("Гайка DIN934 оцинкованная M8 100 шт", "gaika-din934-m8", "SKU-015363", Decimal("191.00"), Decimal("314.00"), "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?auto=format&fit=crop&w=700&q=80"),
-        ("Шпилька резьбовая DIN975", "shpilka-din975", "SKU-015364", Decimal("71.00"), Decimal("154.00"), "https://images.unsplash.com/photo-1609942072337-c3370e820d25?auto=format&fit=crop&w=700&q=80"),
-    ]
-
-    for name, slug, sku, price, old_price, image_url in products_data:
-        Product.objects.create(
-            category=metizy,
-            name=name,
-            slug=slug,
-            sku=sku,
-            price=price,
-            old_price=old_price,
-            image_url=image_url,
-            description="Надежный крепеж для строительных и монтажных задач.",
-            specs={
-                "Диаметр резьбы": "M10",
-                "Шаг резьбы": "1.5",
-                "Направление резьбы": "правая",
-                "Размер под ключ": "17 мм",
-                "Фасовка": "50 шт",
-                "DIN": "934",
-                "Материал": "сталь",
-                "Покрытие": "цинк",
-            },
-            reviews_count=88,
-            stock_store=120,
-            stock_warehouse=260,
-        )
+    _seed_reviews_questions_if_needed()
 
 
 def index(request):
@@ -146,8 +256,77 @@ def product_detail(request, slug=None):
             return redirect("index")
         return redirect("product_detail", slug=first.slug)
     product = get_object_or_404(Product, slug=slug)
-    related_products = Product.objects.filter(category=product.category).exclude(id=product.id)[:4]
-    return render(request, "shop/product_detail.html", {"product": product, "related_products": related_products})
+
+    review_form = ProductReviewForm()
+    question_form = ProductQuestionForm()
+    redirect_anchor = reverse("product_detail", kwargs={"slug": product.slug})
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "add_review":
+            if not request.user.is_authenticated:
+                messages.warning(request, "Войдите в аккаунт, чтобы оставить отзыв.")
+                return redirect(f"{redirect_anchor}#product-reviews")
+            if ProductReview.objects.filter(user=request.user, product=product).exists():
+                messages.error(request, "Вы уже оставили отзыв об этом товаре.")
+                return redirect(f"{redirect_anchor}#product-reviews")
+
+            review_form = ProductReviewForm(request.POST)
+            files = request.FILES.getlist("images")
+            try:
+                validate_review_image_files(files)
+            except ValidationError as exc:
+                review_form.add_error(None, exc)
+
+            if review_form.is_valid():
+                review = review_form.save(commit=False)
+                review.user = request.user
+                review.product = product
+                review.save()
+                for f in files:
+                    ProductReviewPhoto.objects.create(review=review, image=f)
+                product.refresh_review_aggregate()
+                messages.success(request, "Спасибо, ваш отзыв опубликован.")
+                return redirect(f"{redirect_anchor}#product-reviews")
+
+            messages.error(request, "Проверьте данные в форме отзыва.")
+
+        elif action == "add_question":
+            if not request.user.is_authenticated:
+                messages.warning(request, "Войдите в аккаунт, чтобы задать вопрос.")
+                return redirect(f"{redirect_anchor}#product-questions")
+
+            question_form = ProductQuestionForm(request.POST)
+            if question_form.is_valid():
+                q_obj = question_form.save(commit=False)
+                q_obj.user = request.user
+                q_obj.product = product
+                q_obj.save()
+                messages.success(request, "Вопрос отправлен. Ответ появится после проверки.")
+                return redirect(f"{redirect_anchor}#product-questions")
+
+            messages.error(request, "Проверьте текст вопроса.")
+
+    reviews = product.reviews.select_related("user").prefetch_related("photos")
+    questions = list(product.questions.select_related("user"))
+    user_has_review = (
+        request.user.is_authenticated
+        and ProductReview.objects.filter(user=request.user, product=product).exists()
+    )
+
+    return render(
+        request,
+        "shop/product_detail.html",
+        {
+            "product": product,
+            "reviews": reviews,
+            "questions": questions,
+            "review_form": review_form,
+            "question_form": question_form,
+            "user_has_review": user_has_review,
+            "questions_count": len(questions),
+        },
+    )
 
 
 @require_POST

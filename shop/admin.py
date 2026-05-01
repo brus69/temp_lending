@@ -1,6 +1,17 @@
 from django.contrib import admin
 
-from .models import Category, Favorite, Order, OrderItem, Organization, Product, UserProfile
+from .models import (
+    Category,
+    Favorite,
+    Order,
+    OrderItem,
+    Organization,
+    Product,
+    ProductQuestion,
+    ProductReview,
+    ProductReviewPhoto,
+    UserProfile,
+)
 
 
 @admin.register(Category)
@@ -8,6 +19,26 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "product_count", "is_featured", "sort_order")
     list_editable = ("product_count", "is_featured", "sort_order")
     search_fields = ("name", "slug")
+
+
+class ProductReviewPhotoInline(admin.TabularInline):
+    model = ProductReviewPhoto
+    extra = 0
+
+
+@admin.register(ProductReview)
+class ProductReviewAdmin(admin.ModelAdmin):
+    list_display = ("product", "user", "rating", "created_at")
+    list_filter = ("rating", "created_at")
+    search_fields = ("product__name", "user__email", "text")
+    inlines = [ProductReviewPhotoInline]
+
+
+@admin.register(ProductQuestion)
+class ProductQuestionAdmin(admin.ModelAdmin):
+    list_display = ("product", "user", "created_at", "answered_at")
+    list_filter = ("created_at", "answered_at")
+    search_fields = ("product__name", "text", "answer_text")
 
 
 @admin.register(Product)

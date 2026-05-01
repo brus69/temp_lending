@@ -202,7 +202,20 @@ function initAuthModal() {
     setError("");
   };
 
-  const open = () => {
+  const open = (event) => {
+    const trigger = event?.currentTarget;
+    if (trigger instanceof HTMLElement && trigger.dataset.postLoginHash) {
+      try {
+        sessionStorage.setItem(
+          "shopPostLoginHash",
+          trigger.dataset.postLoginHash.startsWith("#")
+            ? trigger.dataset.postLoginHash
+            : `#${trigger.dataset.postLoginHash}`,
+        );
+      } catch {
+        /* ignore */
+      }
+    }
     showStep("email");
     setOpenState(true);
     emailInput?.focus();
@@ -219,7 +232,7 @@ function initAuthModal() {
 
   setOpenState(false);
 
-  openButtons.forEach((btn) => btn.addEventListener("click", open));
+  openButtons.forEach((btn) => btn.addEventListener("click", (event) => open(event)));
   closeButtons.forEach((btn) => btn.addEventListener("click", close));
   backButtons.forEach((btn) =>
     btn.addEventListener("click", () => {
@@ -268,7 +281,17 @@ function initAuthModal() {
         password,
         next: currentPath,
       });
-      window.location.reload();
+      let targetUrl = `${window.location.pathname}${window.location.search}`;
+      try {
+        const hash = sessionStorage.getItem("shopPostLoginHash");
+        if (hash) {
+          sessionStorage.removeItem("shopPostLoginHash");
+          targetUrl += hash;
+        }
+      } catch {
+        /* ignore */
+      }
+      window.location.href = targetUrl;
     } catch (error) {
       setError(error instanceof Error ? error.message : "Ошибка входа.");
     }
@@ -537,9 +560,54 @@ function initCityPicker() {
   setOpenState(false);
 }
 
+/** Оценка отзыва: 5 звёзд, клик задаёт значение в скрытом поле #id_rating */
+function initReviewRatingStars() {
+  const root = document.querySelector("[data-review-stars]");
+  const hidden = document.getElementById("id_rating");
+  if (!root || !(hidden instanceof HTMLInputElement)) return;
+  if (root.dataset.starsInit === "true") return;
+  root.dataset.starsInit = "true";
+
+  const buttons = Array.from(root.querySelectorAll("[data-review-star]"));
+  if (buttons.length !== 5) return;
+
+  let current = (() => {
+    const v = parseInt(hidden.value, 10);
+    return Number.isFinite(v) && v >= 1 && v <= 5 ? v : 0;
+  })();
+
+  const paint = () => {
+    buttons.forEach((btn, i) => {
+      const v = i + 1;
+      const on = current > 0 && v <= current;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.setAttribute("aria-label", `Оценка ${v} из 5`);
+      btn.classList.toggle("border-amber-400", on);
+      btn.classList.toggle("bg-amber-50", on);
+      btn.classList.toggle("text-amber-500", on);
+      btn.classList.toggle("border-slate-200", !on);
+      btn.classList.toggle("bg-white", !on);
+      btn.classList.toggle("text-white", !on);
+      btn.classList.toggle("drop-shadow-[0_0_1px_rgb(100,116,139)]", !on);
+    });
+    hidden.value = current > 0 ? String(current) : "";
+  };
+
+  buttons.forEach((btn, i) => {
+    const v = i + 1;
+    btn.addEventListener("click", () => {
+      current = v;
+      paint();
+    });
+  });
+
+  paint();
+}
+
 document.addEventListener("DOMContentLoaded", applyDynamicBits);
 document.addEventListener("DOMContentLoaded", initCatalogMenu);
 document.addEventListener("DOMContentLoaded", initCartQtyForms);
 document.addEventListener("DOMContentLoaded", initQuickOrder);
 document.addEventListener("DOMContentLoaded", initAuthModal);
 document.addEventListener("DOMContentLoaded", initCityPicker);
+document.addEventListener("DOMContentLoaded", initReviewRatingStars);
