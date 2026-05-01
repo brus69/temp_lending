@@ -1,6 +1,12 @@
 {% extends "shop/base.html" %}
 
-{% block title %}LendingStore - Подкатегория{% endblock %}
+{% block title %}{% if current_category %}{% if current_category.meta_title %}{{ current_category.meta_title }}{% else %}{{ current_category.name }} — LendingStore{% endif %}{% else %}LendingStore — Подкатегория{% endif %}{% endblock %}
+
+{% block meta_extra %}
+{% if current_category and current_category.meta_description %}
+<meta name="description" content="{{ current_category.meta_description }}">
+{% endif %}
+{% endblock %}
 
 {% block content %}
 <main class="vi-container mx-auto w-full px-4 py-8">

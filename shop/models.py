@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Avg, Count
 
@@ -8,6 +9,18 @@ from django.db.models import Avg, Count
 class Category(models.Model):
     name = models.CharField("Название", max_length=120)
     slug = models.SlugField("Слаг", unique=True)
+    meta_title = models.CharField(
+        "SEO — title",
+        max_length=255,
+        blank=True,
+        help_text="Заголовок страницы в браузере и для поисковиков. Пусто — используется название категории.",
+    )
+    meta_description = models.CharField(
+        "SEO — description",
+        max_length=320,
+        blank=True,
+        help_text="Мета-описание для поиска (рекомендуется до ~320 символов).",
+    )
     product_count = models.PositiveIntegerField("Товаров в каталоге", default=0)
     image_url = models.URLField("URL изображения", blank=True)
     is_featured = models.BooleanField("Показывать на главной", default=True)
@@ -20,6 +33,30 @@ class Category(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class CategorySpecAttribute(models.Model):
+    """Набор названий характеристик для категории (шаблон для товаров)."""
+
+    category = models.ForeignKey(
+        Category,
+        verbose_name="Категория",
+        on_delete=models.CASCADE,
+        related_name="spec_attributes",
+    )
+    name = models.CharField("Название", max_length=120)
+    sort_order = models.PositiveIntegerField("Порядок отображения", default=0)
+
+    class Meta:
+        verbose_name = "Характеристика категории"
+        verbose_name_plural = "Характеристики категории"
+        ordering = ["sort_order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["category", "name"], name="uniq_category_spec_attribute_name"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.category.slug}: {self.name}"
 
 
 class Product(models.Model):
@@ -36,7 +73,24 @@ class Product(models.Model):
     old_price = models.DecimalField("Старая цена", max_digits=10, decimal_places=2, null=True, blank=True)
     image_url = models.URLField("URL изображения")
     description = models.TextField("Описание", blank=True)
-    specs = models.JSONField("Характеристики (JSON)", default=dict, blank=True)
+    meta_title = models.CharField(
+        "SEO — title",
+        max_length=255,
+        blank=True,
+        help_text="Заголовок вкладки и для поисковиков. Пусто — используется название товара.",
+    )
+    meta_description = models.CharField(
+        "SEO — description",
+        max_length=320,
+        blank=True,
+        help_text="Мета description для поиска (рекомендуется до ~320 символов).",
+    )
+    specs = models.JSONField(
+        "Характеристики (JSON, устар.)",
+        default=dict,
+        blank=True,
+        help_text="Не используйте для новых данных — задайте характеристики категории и значения у товара.",
+    )
     rating = models.DecimalField("Рейтинг", max_digits=3, decimal_places=1, default=5.0)
     reviews_count = models.PositiveIntegerField("Количество отзывов", default=0)
     stock_store = models.PositiveIntegerField("Остаток в магазинах", default=0)
@@ -51,6 +105,13 @@ class Product(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    def ordered_spec_values(self):
+        """Значения характеристик с предзагрузкой атрибута, по порядку категории."""
+        return (
+            self.spec_values.select_related("attribute")
+            .order_by("attribute__sort_order", "attribute__id")
+        )
+
     def refresh_review_aggregate(self) -> None:
         """Пересчёт средней оценки и количества отзывов из таблицы отзывов."""
         agg = self.reviews.aggregate(cnt=Count("id"), avg=Avg("rating"))
@@ -61,6 +122,64 @@ class Product(models.Model):
         else:
             self.rating = Decimal(str(round(float(agg["avg"]), 1)))
         self.save(update_fields=["reviews_count", "rating"])
+
+
+class ProductSpecValue(models.Model):
+    """Значение одной характеристики у товара (атрибут задаётся на категории)."""
+
+    product = models.ForeignKey(
+        Product,
+        verbose_name="Товар",
+        on_delete=models.CASCADE,
+        related_name="spec_values",
+    )
+    attribute = models.ForeignKey(
+        CategorySpecAttribute,
+        verbose_name="Характеристика",
+        on_delete=models.CASCADE,
+        related_name="product_values",
+    )
+    value = models.CharField("Значение", max_length=512)
+
+    class Meta:
+        verbose_name = "Значение характеристики"
+        verbose_name_plural = "Значения характеристик"
+        constraints = [
+            models.UniqueConstraint(fields=["product", "attribute"], name="uniq_product_spec_value_attribute"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.product_id}: {self.attribute.name}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.attribute_id and self.product_id:
+            if self.attribute.category_id != self.product.category_id:
+                raise ValidationError(
+                    {"attribute": "Выберите характеристику из категории этого товара."},
+                )
+
+
+def sync_product_specs_from_json(product: Product) -> bool:
+    """Переносит product.specs в ProductSpecValue и обнуляет JSON. Возвращает True, если были данные."""
+    raw = product.specs or {}
+    if not raw:
+        return False
+    if product.spec_values.exists():
+        return False
+    for idx, (name, val) in enumerate(raw.items()):
+        attr, _created = CategorySpecAttribute.objects.get_or_create(
+            category=product.category,
+            name=name,
+            defaults={"sort_order": idx},
+        )
+        ProductSpecValue.objects.update_or_create(
+            product=product,
+            attribute=attr,
+            defaults={"value": str(val)},
+        )
+    Product.objects.filter(pk=product.pk).update(specs={})
+    return True
 
 
 class ProductReview(models.Model):

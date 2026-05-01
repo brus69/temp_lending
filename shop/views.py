@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -27,7 +27,9 @@ from .models import (
     ProductQuestion,
     ProductReview,
     ProductReviewPhoto,
+    ProductSpecValue,
     UserProfile,
+    sync_product_specs_from_json,
 )
 
 EMAIL_CONFIRM_MAX_AGE_SECONDS = 60 * 60 * 24
@@ -67,6 +69,47 @@ def _send_confirmation_email(request, user: User) -> None:
         recipient_list=[user.email],
         fail_silently=False,
     )
+
+
+def _demo_specs_dict_for_slug(slug: str) -> dict:
+    """Демо-характеристики для товаров категории «Метизы» до синка в реляционную схему."""
+    base = {
+        "Шаг резьбы": "1.5",
+        "Направление резьбы": "правая",
+        "Материал": "сталь",
+        "Покрытие": "цинк",
+    }
+    if slug == "shaiba-din9021-m8":
+        return {
+            **base,
+            "Диаметр резьбы": "M8",
+            "Размер под ключ": "13 мм",
+            "Фасовка": "100 шт",
+            "DIN": "9021",
+        }
+    if slug == "gaika-din934-m8":
+        return {
+            **base,
+            "Диаметр резьбы": "M8",
+            "Размер под ключ": "13 мм",
+            "Фасовка": "100 шт",
+            "DIN": "934",
+        }
+    if slug == "shpilka-din975":
+        return {
+            **base,
+            "Диаметр резьбы": "M10",
+            "Размер под ключ": "17 мм",
+            "Фасовка": "1 шт",
+            "DIN": "975",
+        }
+    return {
+        **base,
+        "Диаметр резьбы": "M10",
+        "Размер под ключ": "17 мм",
+        "Фасовка": "50 шт",
+        "DIN": "934",
+    }
 
 
 def _seed_reviews_questions_if_needed() -> None:
@@ -206,19 +249,12 @@ def _seed_demo_data() -> None:
                 old_price=old_price,
                 image_url=image_url,
                 description="Надежный крепеж для строительных и монтажных задач.",
-                specs={
-                    "Диаметр резьбы": "M10",
-                    "Шаг резьбы": "1.5",
-                    "Направление резьбы": "правая",
-                    "Размер под ключ": "17 мм",
-                    "Фасовка": "50 шт",
-                    "DIN": "934",
-                    "Материал": "сталь",
-                    "Покрытие": "цинк",
-                },
+                specs=_demo_specs_dict_for_slug(slug),
                 stock_store=120,
                 stock_warehouse=260,
             )
+        for p in Product.objects.filter(category=metizy):
+            sync_product_specs_from_json(p)
 
     _seed_reviews_questions_if_needed()
 
@@ -255,7 +291,18 @@ def product_detail(request, slug=None):
         if not first:
             return redirect("index")
         return redirect("product_detail", slug=first.slug)
-    product = get_object_or_404(Product, slug=slug)
+    product = get_object_or_404(
+        Product.objects.select_related("category").prefetch_related(
+            Prefetch(
+                "spec_values",
+                queryset=ProductSpecValue.objects.select_related("attribute").order_by(
+                    "attribute__sort_order",
+                    "attribute__id",
+                ),
+            ),
+        ),
+        slug=slug,
+    )
 
     review_form = ProductReviewForm()
     question_form = ProductQuestionForm()

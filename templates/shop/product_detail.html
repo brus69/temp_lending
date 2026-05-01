@@ -1,6 +1,12 @@
 {% extends "shop/base.html" %}
 
-{% block title %}LendingStore - Карточка товара{% endblock %}
+{% block title %}{% if product.meta_title %}{{ product.meta_title }}{% else %}{{ product.name }} — LendingStore{% endif %}{% endblock %}
+
+{% block meta_extra %}
+{% if product.meta_description %}
+<meta name="description" content="{{ product.meta_description }}">
+{% endif %}
+{% endblock %}
 
 {% block content %}
 <main class="vi-container mx-auto w-full space-y-5 px-4 py-8">
@@ -48,26 +54,18 @@
 
     <div class="space-y-4">
       <div class="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">Лучшая цена. Ниже средней рыночной</div>
-      <div>
-        <p class="mb-2 text-sm text-slate-500">Диаметр резьбы</p>
-        <div class="flex flex-wrap gap-2">
-          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M4</button>
-          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M5</button>
-          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M6</button>
-          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M8</button>
-          <button class="rounded-xl border border-slate-700 bg-slate-100 px-3 py-1 text-sm font-semibold">M10</button>
-          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M12</button>
-          <button class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">M18</button>
-        </div>
-      </div>
       <div class="space-y-1 text-sm text-slate-700">
-        <p>Диаметр резьбы: <b>M10</b></p>
-        <p>Шаг резьбы: <b>1.5</b></p>
-        <p>Направление резьбы: <b>правая</b></p>
-        <p>Размер под ключ: <b>17 мм</b></p>
-        <p>Фасовка: <b>50 шт</b></p>
-        <p>ГОСТ: <b>5915-70/5927-70/15526-70</b></p>
-        <p>Материал: <b>сталь</b></p>
+        {% if product.spec_values.all %}
+          {% for sv in product.spec_values.all %}
+          <p>{{ sv.attribute.name }}: <b>{{ sv.value }}</b></p>
+          {% endfor %}
+        {% elif product.specs %}
+          {% for key, value in product.specs.items %}
+          <p>{{ key }}: <b>{{ value }}</b></p>
+          {% endfor %}
+        {% else %}
+          <p class="text-slate-500">Характеристики уточняются.</p>
+        {% endif %}
       </div>
     </div>
 
@@ -195,11 +193,17 @@
         {% endif %}
         <h3 class="{% if product.description %}mt-10 {% endif %}text-3xl font-bold text-slate-900">Технические характеристики</h3>
         <div class="mt-4 grid grid-cols-1 gap-y-2 text-sm sm:grid-cols-[1fr_1fr]">
+          {% if product.spec_values.all %}
+          {% for sv in product.spec_values.all %}
+          <span class="border-b border-slate-200 py-1 text-slate-500">{{ sv.attribute.name }}</span><span class="border-b border-slate-200 py-1 text-slate-900">{{ sv.value }}</span>
+          {% endfor %}
+          {% elif product.specs %}
           {% for key, value in product.specs.items %}
           <span class="border-b border-slate-200 py-1 text-slate-500">{{ key }}</span><span class="border-b border-slate-200 py-1 text-slate-900">{{ value }}</span>
-          {% empty %}
-          <p class="text-sm text-slate-500">Характеристики уточняются.</p>
           {% endfor %}
+          {% else %}
+          <p class="text-sm text-slate-500">Характеристики уточняются.</p>
+          {% endif %}
         </div>
       </section>
 
