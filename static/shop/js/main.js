@@ -604,6 +604,78 @@ function initReviewRatingStars() {
   paint();
 }
 
+function initProductGallery() {
+  document.querySelectorAll("[data-product-gallery]").forEach((root) => {
+    const wrap = root.closest("[data-product-gallery-wrap]") || root;
+    const main = root.querySelector("[data-gallery-main]");
+    const thumbs = Array.from(root.querySelectorAll("[data-gallery-thumb]"));
+    const openBtn = root.querySelector("[data-gallery-open]");
+    const modal = wrap.querySelector("[data-gallery-modal]");
+    const modalDialog = wrap.querySelector("[data-gallery-modal-dialog]");
+    const modalImage = wrap.querySelector("[data-gallery-modal-image]");
+    const closeBtn = wrap.querySelector("[data-gallery-close]");
+    if (!main || thumbs.length === 0) return;
+
+    const setModalOpen = (isOpen) => {
+      if (!modal) return;
+      if (isOpen) {
+        modal.hidden = false;
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("overflow-hidden");
+      } else {
+        modal.classList.remove("flex");
+        modal.classList.add("hidden");
+        modal.hidden = true;
+        modal.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("overflow-hidden");
+      }
+    };
+
+    const setActive = (btn) => {
+      thumbs.forEach((t) => {
+        t.classList.remove("border-red-600", "ring-2", "ring-red-600");
+      });
+      btn.classList.add("border-red-600", "ring-2", "ring-red-600");
+    };
+
+    thumbs.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const url = btn.getAttribute("data-gallery-thumb");
+        if (url) {
+          main.setAttribute("src", url);
+          if (modalImage) modalImage.setAttribute("src", url);
+        }
+        setActive(btn);
+      });
+    });
+
+    openBtn?.addEventListener("click", () => {
+      if (modalImage) modalImage.setAttribute("src", main.getAttribute("src") || "");
+      setModalOpen(true);
+    });
+
+    closeBtn?.addEventListener("click", () => {
+      setModalOpen(false);
+    });
+
+    modal?.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (modalDialog && modalDialog.contains(target)) return;
+      setModalOpen(false);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setModalOpen(false);
+    });
+
+    setActive(thumbs[0]);
+    if (modalImage) modalImage.setAttribute("src", main.getAttribute("src") || "");
+  });
+}
+
 document.addEventListener("DOMContentLoaded", applyDynamicBits);
 document.addEventListener("DOMContentLoaded", initCatalogMenu);
 document.addEventListener("DOMContentLoaded", initCartQtyForms);
@@ -611,3 +683,4 @@ document.addEventListener("DOMContentLoaded", initQuickOrder);
 document.addEventListener("DOMContentLoaded", initAuthModal);
 document.addEventListener("DOMContentLoaded", initCityPicker);
 document.addEventListener("DOMContentLoaded", initReviewRatingStars);
+document.addEventListener("DOMContentLoaded", initProductGallery);

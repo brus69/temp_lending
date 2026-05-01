@@ -1,9 +1,46 @@
 from decimal import Decimal
+from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Avg, Count
+
+
+def product_image_upload_to(instance: "Product", filename: str) -> str:
+    """Файлы в media/products/<slug_категории>/<slug_товара>.<ext>"""
+    ext = Path(filename).suffix.lower()
+    allowed = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    if ext not in allowed:
+        ext = ".jpg"
+    cat_slug = "unsorted"
+    if instance.category_id:
+        cat = instance.category
+        cat_slug = getattr(cat, "slug", None) or str(instance.category_id)
+    base = instance.slug or (str(instance.pk) if instance.pk else "draft")
+    return f"products/{cat_slug}/{base}{ext}"
+
+
+def product_gallery_image_upload_to(instance: "ProductGalleryImage", filename: str) -> str:
+    """Файлы галереи: media/products/<slug_категории>/gallery/<slug_товара>-<id>.<ext>"""
+    ext = Path(filename).suffix.lower()
+    allowed = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    if ext not in allowed:
+        ext = ".jpg"
+    cat_slug = "unsorted"
+    if instance.product_id:
+        cat_slug = (
+            getattr(instance.product.category, "slug", None)
+            or str(instance.product.category_id)
+            or "unsorted"
+        )
+    base = (
+        instance.product.slug
+        if instance.product_id and instance.product.slug
+        else str(instance.product_id or "draft")
+    )
+    suffix = str(instance.pk) if instance.pk else "new"
+    return f"products/{cat_slug}/gallery/{base}-{suffix}{ext}"
 
 
 class Category(models.Model):
@@ -71,7 +108,18 @@ class Product(models.Model):
     sku = models.CharField("Артикул (SKU)", max_length=64, unique=True)
     price = models.DecimalField("Цена", max_digits=10, decimal_places=2)
     old_price = models.DecimalField("Старая цена", max_digits=10, decimal_places=2, null=True, blank=True)
-    image_url = models.URLField("URL изображения")
+    image = models.ImageField(
+        "Изображение (загрузка)",
+        upload_to=product_image_upload_to,
+        blank=True,
+        null=True,
+        help_text="Каталог на сервере: products/<slug категории>/файл. Если файл загружен, он имеет приоритет над URL.",
+    )
+    image_url = models.URLField(
+        "URL изображения",
+        blank=True,
+        help_text="Внешняя ссылка. Обязательно, если файл не загружен.",
+    )
     description = models.TextField("Описание", blank=True)
     meta_title = models.CharField(
         "SEO — title",
@@ -104,6 +152,27 @@ class Product(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def clean(self) -> None:
+        super().clean()
+        has_file = bool(getattr(self, "image", False) and getattr(self.image, "name", ""))
+        has_url = bool((self.image_url or "").strip())
+        if not has_file and not has_url:
+            raise ValidationError(
+                {
+                    "image": "Укажите загруженное изображение или URL.",
+                    "image_url": "Укажите URL или загрузите файл.",
+                },
+            )
+
+    @property
+    def primary_image_url(self) -> str:
+        if self.image:
+            try:
+                return self.image.url
+            except ValueError:
+                pass
+        return (self.image_url or "").strip()
 
     def ordered_spec_values(self):
         """Значения характеристик с предзагрузкой атрибута, по порядку категории."""
@@ -158,6 +227,42 @@ class ProductSpecValue(models.Model):
                 raise ValidationError(
                     {"attribute": "Выберите характеристику из категории этого товара."},
                 )
+
+
+class ProductGalleryImage(models.Model):
+    MAX_IMAGES_PER_PRODUCT = 10
+
+    product = models.ForeignKey(
+        Product,
+        verbose_name="Товар",
+        on_delete=models.CASCADE,
+        related_name="gallery_images",
+    )
+    image = models.ImageField("Фото", upload_to=product_gallery_image_upload_to)
+    sort_order = models.PositiveIntegerField("Порядок", default=0)
+
+    class Meta:
+        verbose_name = "Фото товара"
+        verbose_name_plural = "Фото товара"
+        ordering = ["sort_order", "id"]
+
+    def __str__(self) -> str:
+        return f"Фото {self.product_id} #{self.id or 'new'}"
+
+    def clean(self) -> None:
+        super().clean()
+        if not self.product_id:
+            return
+        current_count = (
+            ProductGalleryImage.objects
+            .filter(product_id=self.product_id)
+            .exclude(pk=self.pk)
+            .count()
+        )
+        if current_count >= self.MAX_IMAGES_PER_PRODUCT:
+            raise ValidationError(
+                {"product": f"Можно загрузить не более {self.MAX_IMAGES_PER_PRODUCT} изображений на товар."},
+            )
 
 
 def sync_product_specs_from_json(product: Product) -> bool:

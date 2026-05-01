@@ -10,7 +10,7 @@
     href="{% url 'product_detail' product.slug %}"
     class="mt-2 block outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
   >
-    <img src="{{ product.image_url }}" alt="{{ product.name }}" class="h-36 w-full object-contain" loading="lazy">
+    <img src="{{ product.primary_image_url }}" alt="{{ product.name }}" class="h-36 w-full object-contain" loading="lazy">
   </a>
   <a
     href="{% url 'product_detail' product.slug %}"

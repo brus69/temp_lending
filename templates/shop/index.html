@@ -39,7 +39,7 @@
         <div class="absolute right-2 top-2 z-10">
           {% include "shop/includes/favorite_button.html" with product=product next=request.get_full_path compact=True %}
         </div>
-        <img src="{{ product.image_url }}" class="h-40 w-full object-contain" alt="{{ product.name }}">
+        <img src="{{ product.primary_image_url }}" class="h-40 w-full object-contain" alt="{{ product.name }}">
         <p class="mt-2 text-2xl font-bold">{{ product.price|floatformat:0 }} ₽</p>
         <p class="text-sm text-slate-600">{{ product.name }}</p>
       </article>

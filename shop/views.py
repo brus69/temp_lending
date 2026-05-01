@@ -24,6 +24,7 @@ from .models import (
     OrderItem,
     Organization,
     Product,
+    ProductGalleryImage,
     ProductQuestion,
     ProductReview,
     ProductReviewPhoto,
@@ -299,6 +300,10 @@ def product_detail(request, slug=None):
                     "attribute__sort_order",
                     "attribute__id",
                 ),
+            ),
+            Prefetch(
+                "gallery_images",
+                queryset=ProductGalleryImage.objects.order_by("sort_order", "id"),
             ),
         ),
         slug=slug,

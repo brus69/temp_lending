@@ -34,20 +34,59 @@
   </section>
 
   <section class="grid gap-6 lg:grid-cols-[1.05fr_0.95fr_0.55fr]">
-    <div>
+    <div data-product-gallery-wrap>
       <div class="mb-3 flex items-center gap-2">
         <span class="rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Закрытая распродажа</span>
         <span class="rounded-lg bg-sky-500 px-2 py-1 text-xs font-semibold text-white">Лучшая цена</span>
       </div>
-      <div class="grid grid-cols-[60px_1fr] gap-3">
-        <div class="space-y-2">
-          <img src="{{ product.image_url }}" alt="мини 1" class="h-14 w-14 rounded-md border border-slate-200 bg-white object-cover">
-          <img src="{{ product.image_url }}" alt="мини 2" class="h-14 w-14 rounded-md border border-slate-200 bg-white object-cover">
-          <img src="{{ product.image_url }}" alt="мини 3" class="h-14 w-14 rounded-md border border-slate-200 bg-white object-cover">
-          <img src="{{ product.image_url }}" alt="мини 4" class="h-14 w-14 rounded-md border border-slate-200 bg-white object-cover">
+      <div class="grid grid-cols-[60px_1fr] gap-3" data-product-gallery>
+        <div class="max-h-[560px] space-y-2 overflow-y-auto pr-1">
+          <button
+            type="button"
+            data-gallery-thumb="{{ product.primary_image_url }}"
+            aria-label="Главное фото"
+            class="gallery-thumb block h-14 w-14 shrink-0 rounded-md border-2 border-transparent bg-white p-0 ring-offset-2 ring-offset-white transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+          >
+            <img src="{{ product.primary_image_url }}" alt="" class="h-full w-full rounded-md object-cover">
+          </button>
+          {% for gi in product.gallery_images.all %}
+          <button
+            type="button"
+            data-gallery-thumb="{{ gi.image.url }}"
+            aria-label="Фото {{ forloop.counter }}"
+            class="gallery-thumb block h-14 w-14 shrink-0 rounded-md border-2 border-transparent bg-white p-0 ring-offset-2 ring-offset-white transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+          >
+            <img src="{{ gi.image.url }}" alt="" class="h-full w-full rounded-md object-cover">
+          </button>
+          {% endfor %}
         </div>
         <div class="rounded-xl bg-white p-2">
-          <img src="{{ product.image_url }}" alt="{{ product.name }}" class="h-[560px] w-full object-contain">
+          <button
+            type="button"
+            data-gallery-open
+            class="block w-full cursor-zoom-in rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600"
+            aria-label="Увеличить изображение товара"
+          >
+            <img data-gallery-main src="{{ product.primary_image_url }}" alt="{{ product.name }}" class="h-[560px] w-full object-contain object-top">
+          </button>
+        </div>
+      </div>
+      <div
+        data-gallery-modal
+        hidden
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/80 px-4 py-6"
+        aria-hidden="true"
+      >
+        <div class="relative w-full max-w-5xl rounded-2xl bg-white p-3 shadow-2xl" data-gallery-modal-dialog>
+          <button
+            type="button"
+            data-gallery-close
+            class="absolute right-4 top-4 z-10 rounded-full bg-white/90 px-3 py-1 text-2xl leading-none text-slate-500 hover:text-slate-800"
+            aria-label="Закрыть изображение"
+          >
+            ×
+          </button>
+          <img data-gallery-modal-image src="{{ product.primary_image_url }}" alt="{{ product.name }}" class="max-h-[82vh] w-full object-contain object-top">
         </div>
       </div>
     </div>

@@ -24,7 +24,7 @@
       <span class="inline-block rounded-md bg-sky-500 px-2 py-1 text-xs font-semibold text-white">Лучшая цена</span>
       {% endif %}
       <a href="{% url 'product_detail' product.slug %}">
-        <img src="{{ product.image_url }}" alt="{{ product.name }}" class="mt-2 h-36 w-full object-contain">
+        <img src="{{ product.primary_image_url }}" alt="{{ product.name }}" class="mt-2 h-36 w-full object-contain">
       </a>
       <h3 class="mt-2 text-sm font-medium">
         <a href="{% url 'product_detail' product.slug %}" class="text-slate-800 hover:text-red-600">{{ product.name }}</a>
