@@ -62,12 +62,13 @@
     </div>
 
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {% for product in products %}
+      {% for product in page_obj %}
       {% include "shop/includes/product_listing_card.html" with product=product listing_price_class="mt-2 text-3xl font-bold text-slate-900" %}
       {% empty %}
       <p class="text-sm text-slate-500">Товары в категории скоро появятся.</p>
       {% endfor %}
     </div>
+    {% include "shop/includes/pagination.html" with page_obj=page_obj pagination_prefix=pagination_prefix %}
   </section>
   </div>
 </main>

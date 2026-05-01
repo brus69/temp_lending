@@ -1,4 +1,5 @@
 from decimal import Decimal
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -7,6 +8,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
+from django.core.paginator import Paginator
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from django.db.models import Prefetch, Q
 from django.http import JsonResponse
@@ -34,6 +36,26 @@ from .models import (
 )
 
 EMAIL_CONFIRM_MAX_AGE_SECONDS = 60 * 60 * 24
+
+PRODUCTS_PER_PAGE = 12
+
+
+def _pagination_nav_items(page_obj, *, on_each_side: int = 1, on_ends: int = 2) -> list[dict]:
+    """Элементы для сегментированной пагинации (числа и пропуски)."""
+    paginator = page_obj.paginator
+    if paginator.num_pages <= 1:
+        return []
+    items: list[dict] = []
+    for entry in paginator.get_elided_page_range(
+        page_obj.number,
+        on_each_side=on_each_side,
+        on_ends=on_ends,
+    ):
+        if isinstance(entry, int):
+            items.append({"kind": "page", "number": entry})
+        else:
+            items.append({"kind": "ellipsis"})
+    return items
 
 
 def _build_email_confirmation_token(user: User) -> str:
@@ -111,6 +133,528 @@ def _demo_specs_dict_for_slug(slug: str) -> dict:
         "Фасовка": "50 шт",
         "DIN": "934",
     }
+
+
+# Демо-каталог: (category_slug, name, product_slug, sku, price, old_price, image_url)
+_DEMO_PRODUCT_SEEDS: list[tuple[str, str, str, str, Decimal, Decimal | None, str]] = [
+    (
+        "metizy",
+        "Гайка DIN934 оцинкованная M10 50 шт",
+        "gaika-din934-m10",
+        "SKU-015361",
+        Decimal("210.00"),
+        Decimal("358.00"),
+        "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=1200&q=80",
+    ),
+    (
+        "metizy",
+        "Шайба DIN9021 кузовная M8 100 шт",
+        "shaiba-din9021-m8",
+        "SKU-015362",
+        Decimal("270.00"),
+        Decimal("377.00"),
+        "https://images.unsplash.com/photo-1616789079464-9274d77b2d1f?auto=format&fit=crop&w=700&q=80",
+    ),
+    (
+        "metizy",
+        "Гайка DIN934 оцинкованная M8 100 шт",
+        "gaika-din934-m8",
+        "SKU-015363",
+        Decimal("191.00"),
+        Decimal("314.00"),
+        "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?auto=format&fit=crop&w=700&q=80",
+    ),
+    (
+        "metizy",
+        "Шпилька резьбовая DIN975",
+        "shpilka-din975",
+        "SKU-015364",
+        Decimal("71.00"),
+        Decimal("154.00"),
+        "https://images.unsplash.com/photo-1609942072337-c3370e820d25?auto=format&fit=crop&w=700&q=80",
+    ),
+    (
+        "metizy",
+        "Болт DIN933 с полной резьбой M8×40 оцинк, 50 шт",
+        "bolt-din933-m8x40-50",
+        "SKU-DEMO-02001",
+        Decimal("189.00"),
+        Decimal("289.00"),
+        "https://images.unsplash.com/photo-1567767326926-084838f5de88?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Болт DIN933 M10×50 оцинк, 25 шт",
+        "bolt-din933-m10x50-25",
+        "SKU-DEMO-02002",
+        Decimal("245.00"),
+        Decimal("349.00"),
+        "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Винт ISO7380 с полукруглой головкой M6×16, 100 шт",
+        "vint-iso7380-m6x16-100",
+        "SKU-DEMO-02003",
+        Decimal("312.00"),
+        Decimal("445.00"),
+        "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Шайба плоская DIN125 M10, 200 шт",
+        "shaiba-din125-m10-200",
+        "SKU-DEMO-02004",
+        Decimal("156.00"),
+        Decimal("239.00"),
+        "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Гайка самоконтрящаяся DIN985 M10, 50 шт",
+        "gaika-din985-m10-50",
+        "SKU-DEMO-02005",
+        Decimal("228.00"),
+        Decimal("340.00"),
+        "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Шайба пружинная DIN127 M8, 100 шт",
+        "shaiba-din127-m8-100",
+        "SKU-DEMO-02006",
+        Decimal("134.00"),
+        Decimal("210.00"),
+        "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Винт самонарезающий по металлу 4.2×16, 500 шт",
+        "vint-samorez-42x16-500",
+        "SKU-DEMO-02007",
+        Decimal("402.00"),
+        Decimal("519.00"),
+        "https://images.unsplash.com/photo-1585298723682-7115561c51b7?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Дюбель распорный 8×40, 50 шт",
+        "dyubel-8x40-50",
+        "SKU-DEMO-02008",
+        Decimal("176.00"),
+        Decimal("265.00"),
+        "https://images.unsplash.com/photo-1620432468734-65f36cf65dfa?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Болт DIN933 с полной резьбой M6×20 оцинк, 100 шт",
+        "bolt-din933-m6x20-100",
+        "SKU-DEMO-02031",
+        Decimal("148.00"),
+        Decimal("219.00"),
+        "https://images.unsplash.com/photo-1567767326926-084838f5de88?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Болт DIN931 с неполной резьбой M12×80 оцинк, 10 шт",
+        "bolt-din931-m12x80-10",
+        "SKU-DEMO-02032",
+        Decimal("412.00"),
+        Decimal("529.00"),
+        "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Гайка шестигранная DIN934 M12 оцинк, 25 шт",
+        "gaika-din934-m12-25",
+        "SKU-DEMO-02033",
+        Decimal("198.00"),
+        Decimal("289.00"),
+        "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Шайба DIN9021 кузовная M12 оцинк, 50 шт",
+        "shaiba-din9021-m12-50",
+        "SKU-DEMO-02034",
+        Decimal("224.00"),
+        Decimal("335.00"),
+        "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Шплинт пружинный 3×40 мм, комплект 20 шт",
+        "shplint-3x40-20",
+        "SKU-DEMO-02035",
+        Decimal("86.00"),
+        Decimal("129.00"),
+        "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Шайба пружинная тяжёлая DIN127B M10, 100 шт",
+        "shaiba-din127b-m10-100",
+        "SKU-DEMO-02036",
+        Decimal("162.00"),
+        Decimal("239.00"),
+        "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Винт ISO7380 с полукруглой головкой M8×20, нерж. А2, 50 шт",
+        "vint-iso7380-m8x20-a2-50",
+        "SKU-DEMO-02037",
+        Decimal("498.00"),
+        Decimal("649.00"),
+        "https://images.unsplash.com/photo-1585298723682-7115561c51b7?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Винт DIN965 потайной M5×16 оцинк, 200 шт",
+        "vint-din965-m5x16-200",
+        "SKU-DEMO-02038",
+        Decimal("274.00"),
+        Decimal("359.00"),
+        "https://images.unsplash.com/photo-1616789079464-9274d77b2d1f?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Гайка фланцевая с насечкой DIN6923 M10, 40 шт",
+        "gaika-din6923-m10-40",
+        "SKU-DEMO-02039",
+        Decimal("356.00"),
+        Decimal("459.00"),
+        "https://images.unsplash.com/photo-1609942072337-c3370e820d25?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Шпилька резьбовая DIN976-1 M16×500 (шт)",
+        "shpilka-din976-m16x500",
+        "SKU-DEMO-02040",
+        Decimal("312.00"),
+        Decimal("429.00"),
+        "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Дюбель-гвоздь 6×60 мм для бетона, 100 шт",
+        "dyubel-gvozd-6x60-100",
+        "SKU-DEMO-02041",
+        Decimal("388.00"),
+        Decimal("499.00"),
+        "https://images.unsplash.com/photo-1620432468734-65f36cf65dfa?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Забивной анкер для бетона M10×70 (комплект 10 шт)",
+        "anker-zabivnoj-m10x70-10",
+        "SKU-DEMO-02042",
+        Decimal("560.00"),
+        Decimal("719.00"),
+        "https://images.unsplash.com/photo-1599948128020-9a44505b3a80?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Болт профильный под Т-паз M10×25 (аль-профиль 45 мм)",
+        "bolt-tpaz-m10x25-45",
+        "SKU-DEMO-02043",
+        Decimal("178.00"),
+        Decimal("249.00"),
+        "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Штифт цилиндрический DIN7 8×40 оцинк, 50 шт",
+        "shtift-din7-8x40-50",
+        "SKU-DEMO-02044",
+        Decimal("204.00"),
+        Decimal("299.00"),
+        "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Шпонка призматическая 8×7×40 мм DIN6888, 10 шт",
+        "shponka-8x7x40-din6888-10",
+        "SKU-DEMO-02045",
+        Decimal("132.00"),
+        Decimal("189.00"),
+        "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Кольцо стопорное наружное 28 мм DIN471 (комплект 25 шт)",
+        "kolco-stoporno-din471-28-25",
+        "SKU-DEMO-02046",
+        Decimal("168.00"),
+        Decimal("235.00"),
+        "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Шуруп по дереву с потайной головкой 6×80 мм оцинк, 100 шт",
+        "shurup-derevo-6x80-100",
+        "SKU-DEMO-02047",
+        Decimal("246.00"),
+        Decimal("329.00"),
+        "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Гайка барашковая M8 DIN315 оцинк, 50 шт",
+        "gaika-barashkovaya-m8-50",
+        "SKU-DEMO-02048",
+        Decimal("218.00"),
+        Decimal("299.00"),
+        "https://images.unsplash.com/photo-1585298723682-7115561c51b7?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Гайка самостопорящаяся DIN986 оцинк M10, 50 шт",
+        "gaika-din986-m10-50",
+        "SKU-DEMO-02049",
+        Decimal("238.00"),
+        Decimal("319.00"),
+        "https://images.unsplash.com/photo-1609942072337-c3370e820d25?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "metizy",
+        "Шайба DIN9021 усиленная кузовная M16 оцинк, 25 шт",
+        "shaiba-din9021-m16-25",
+        "SKU-DEMO-02050",
+        Decimal("296.00"),
+        Decimal("405.00"),
+        "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "furnitura",
+        "Петля накладная 100×75 мм, комплект 2 шт",
+        "petlya-100x75-2",
+        "SKU-DEMO-02009",
+        Decimal("590.00"),
+        Decimal("749.00"),
+        "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "furnitura",
+        "Ручка мебельная 128 мм, хром",
+        "ruchka-128mm-hrom",
+        "SKU-DEMO-02010",
+        Decimal("340.00"),
+        Decimal("459.00"),
+        "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "furnitura",
+        "Замок врезной 50 мм",
+        "zamok-vreznoj-50",
+        "SKU-DEMO-02011",
+        Decimal("1120.00"),
+        Decimal("1390.00"),
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "furnitura",
+        "Уголок мебельный 30×30 мм, 4 шт",
+        "ugolok-30x30-4",
+        "SKU-DEMO-02012",
+        Decimal("210.00"),
+        Decimal("289.00"),
+        "https://images.unsplash.com/photo-1615876234889-fd9cd39d6648?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "furnitura",
+        "Ограничитель открывания двери",
+        "ogranichitel-dveri-1",
+        "SKU-DEMO-02013",
+        Decimal("430.00"),
+        Decimal("549.00"),
+        "https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "special-krepezh",
+        "Анкер клиновой M12×100",
+        "anker-klin-m12x100",
+        "SKU-DEMO-02014",
+        Decimal("168.00"),
+        Decimal("239.00"),
+        "https://images.unsplash.com/photo-1599948128020-9a44505b3a80?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "special-krepezh",
+        "Анкер с болтом M10 L=80",
+        "anker-bolt-m10-l80",
+        "SKU-DEMO-02015",
+        Decimal("142.00"),
+        Decimal("205.00"),
+        "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "special-krepezh",
+        "Дюбель с шурупом быстрый монтаж 10×80",
+        "dyubel-bm-10x80",
+        "SKU-DEMO-02016",
+        Decimal("96.00"),
+        Decimal("149.00"),
+        "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "special-krepezh",
+        "Заклепка вытяжная 4×12, 50 шт",
+        "zaklepka-vtyazhnaya-4x12",
+        "SKU-DEMO-02017",
+        Decimal("520.00"),
+        Decimal("629.00"),
+        "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "special-krepezh",
+        "Хомут силовой одноболтовый 68–73 мм",
+        "homut-silovoj-68",
+        "SKU-DEMO-02018",
+        Decimal("74.00"),
+        Decimal("119.00"),
+        "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "takelazh",
+        "Трос стальной оцинкованный Ø4 мм, бухта 10 м",
+        "tros-o4mm-10m",
+        "SKU-DEMO-02019",
+        Decimal("890.00"),
+        Decimal("1049.00"),
+        "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "takelazh",
+        "Карабин монтажный 8 мм",
+        "karabin-8mm",
+        "SKU-DEMO-02020",
+        Decimal("210.00"),
+        Decimal("279.00"),
+        "https://images.unsplash.com/photo-1590674899484-d5640e854abe?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "takelazh",
+        "Цепь короткозвенная 6 мм, 5 м",
+        "cep-6mm-5m",
+        "SKU-DEMO-02021",
+        Decimal("1540.00"),
+        Decimal("1820.00"),
+        "https://images.unsplash.com/photo-1589487391730-58fec20ad075?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "takelazh",
+        "Строп текстильный петлевой 2 т / 2 м",
+        "strop-2t-2m",
+        "SKU-DEMO-02022",
+        Decimal("680.00"),
+        Decimal("849.00"),
+        "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "plastic-krepezh",
+        "Дюбель «ёлочка» 6×30, 100 шт",
+        "dyubel-elochka-6x30",
+        "SKU-DEMO-02023",
+        Decimal("265.00"),
+        Decimal("349.00"),
+        "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "plastic-krepezh",
+        "Клипса кабельная Ø12, 100 шт",
+        "klipsa-kabel-12",
+        "SKU-DEMO-02024",
+        Decimal("198.00"),
+        Decimal("269.00"),
+        "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "plastic-krepezh",
+        "Хомут нейлоновый 200×4.8 мм, 100 шт",
+        "homut-nylon-200",
+        "SKU-DEMO-02025",
+        Decimal("412.00"),
+        Decimal("519.00"),
+        "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "auto-krepezh",
+        "Клипса автомобильная универсальная, 50 шт",
+        "klipsa-auto-uni-50",
+        "SKU-DEMO-02026",
+        Decimal("356.00"),
+        Decimal("459.00"),
+        "https://images.unsplash.com/photo-1611835151646-5a9df7f11463?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "auto-krepezh",
+        "Винт с прессшайбой M5×16 для пластика, 50 шт",
+        "vint-press-m5x16-50",
+        "SKU-DEMO-02027",
+        Decimal("289.00"),
+        Decimal("379.00"),
+        "https://images.unsplash.com/photo-1489827904767-dfc78f294fa7?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "montazhnye-lenty",
+        "Лента монтажная двусторонняя 25 мм × 5 м",
+        "lenta-dvustoron-25",
+        "SKU-DEMO-02028",
+        Decimal("420.00"),
+        Decimal("549.00"),
+        "https://images.unsplash.com/photo-1585298723682-7115561c51b7?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "montazhnye-lenty",
+        "Скотч алюминиевый 48 мм × 25 м",
+        "skotch-al-48",
+        "SKU-DEMO-02029",
+        Decimal("980.00"),
+        Decimal("1190.00"),
+        "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=900&q=80",
+    ),
+    (
+        "chemical",
+        "Химический анкер 300 мл (смола + отвердитель)",
+        "himicheskiy-anker-300ml",
+        "SKU-DEMO-02030",
+        Decimal("2140.00"),
+        Decimal("2590.00"),
+        "https://images.unsplash.com/photo-1620432468734-65f36cf65dfa?auto=format&fit=crop&w=900&q=80",
+    ),
+]
+
+
+def _ensure_demo_products() -> None:
+    """Идемпотентно создаёт демо-товары по slug (включая расширенный каталог метизов)."""
+    categories_by_slug = {c.slug: c for c in Category.objects.all()}
+    if not categories_by_slug:
+        return
+    for idx, (cat_slug, name, slug, sku, price, old_price, image_url) in enumerate(_DEMO_PRODUCT_SEEDS):
+        category = categories_by_slug.get(cat_slug)
+        if not category:
+            continue
+        stock_base = 70 + (idx % 11) * 15
+        obj, created = Product.objects.get_or_create(
+            slug=slug,
+            defaults={
+                "category": category,
+                "name": name,
+                "sku": sku,
+                "price": price,
+                "old_price": old_price,
+                "image_url": image_url,
+                "description": "Демонстрационная позиция каталога для тестирования витрины и карточки товара.",
+                "specs": _demo_specs_dict_for_slug(slug),
+                "stock_store": stock_base,
+                "stock_warehouse": stock_base + 120,
+            },
+        )
+        if created:
+            sync_product_specs_from_json(obj)
+        elif not obj.spec_values.exists() and (obj.specs or {}):
+            sync_product_specs_from_json(obj)
 
 
 def _seed_reviews_questions_if_needed() -> None:
@@ -220,43 +764,16 @@ def _seed_demo_data() -> None:
             ("Монтажные ленты", "montazhnye-lenty", 17715, "https://images.unsplash.com/photo-1585298723682-7115561c51b7?auto=format&fit=crop&w=260&q=80"),
             ("Химический", "chemical", 13699, "https://images.unsplash.com/photo-1620432468734-65f36cf65dfa?auto=format&fit=crop&w=260&q=80"),
         ]
-        categories = []
         for idx, (name, slug, count, image_url) in enumerate(categories_data, start=1):
-            categories.append(
-                Category.objects.create(
-                    name=name,
-                    slug=slug,
-                    product_count=count,
-                    image_url=image_url,
-                    sort_order=idx,
-                )
-            )
-
-        metizy = categories[0]
-        products_data = [
-            ("Гайка DIN934 оцинкованная M10 50 шт", "gaika-din934-m10", "SKU-015361", Decimal("210.00"), Decimal("358.00"), "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=1200&q=80"),
-            ("Шайба DIN9021 кузовная M8 100 шт", "shaiba-din9021-m8", "SKU-015362", Decimal("270.00"), Decimal("377.00"), "https://images.unsplash.com/photo-1616789079464-9274d77b2d1f?auto=format&fit=crop&w=700&q=80"),
-            ("Гайка DIN934 оцинкованная M8 100 шт", "gaika-din934-m8", "SKU-015363", Decimal("191.00"), Decimal("314.00"), "https://images.unsplash.com/photo-1616788494707-ec28f08d05a1?auto=format&fit=crop&w=700&q=80"),
-            ("Шпилька резьбовая DIN975", "shpilka-din975", "SKU-015364", Decimal("71.00"), Decimal("154.00"), "https://images.unsplash.com/photo-1609942072337-c3370e820d25?auto=format&fit=crop&w=700&q=80"),
-        ]
-
-        for name, slug, sku, price, old_price, image_url in products_data:
-            Product.objects.create(
-                category=metizy,
+            Category.objects.create(
                 name=name,
                 slug=slug,
-                sku=sku,
-                price=price,
-                old_price=old_price,
+                product_count=count,
                 image_url=image_url,
-                description="Надежный крепеж для строительных и монтажных задач.",
-                specs=_demo_specs_dict_for_slug(slug),
-                stock_store=120,
-                stock_warehouse=260,
+                sort_order=idx,
             )
-        for p in Product.objects.filter(category=metizy):
-            sync_product_specs_from_json(p)
 
+    _ensure_demo_products()
     _seed_reviews_questions_if_needed()
 
 
@@ -277,11 +794,22 @@ def sub_category(request, slug=None):
     _seed_demo_data()
     categories = Category.objects.filter(is_featured=True)
     current_category = Category.objects.filter(slug=slug).first() if slug else categories.first()
-    products = Product.objects.filter(category=current_category) if current_category else Product.objects.none()
+    products_qs = (
+        Product.objects.filter(category=current_category).select_related("category").order_by("name")
+        if current_category
+        else Product.objects.none()
+    )
+    page_obj = Paginator(products_qs, PRODUCTS_PER_PAGE).get_page(request.GET.get("page"))
     return render(
         request,
         "shop/sub_category.html",
-        {"categories": categories, "current_category": current_category, "products": products},
+        {
+            "categories": categories,
+            "current_category": current_category,
+            "page_obj": page_obj,
+            "pagination_prefix": "",
+            "pagination_items": _pagination_nav_items(page_obj),
+        },
     )
 
 
@@ -493,12 +1021,27 @@ def checkout_success(request, order_id):
 
 def search(request):
     query = request.GET.get("q", "").strip()
-    products = Product.objects.none()
+    products_qs = Product.objects.none()
     if query:
-        products = Product.objects.filter(
-            Q(name__icontains=query) | Q(sku__icontains=query) | Q(description__icontains=query)
+        products_qs = (
+            Product.objects.filter(
+                Q(name__icontains=query) | Q(sku__icontains=query) | Q(description__icontains=query),
+            )
+            .select_related("category")
+            .order_by("name")
         )
-    return render(request, "shop/search.html", {"query": query, "products": products})
+    page_obj = Paginator(products_qs, PRODUCTS_PER_PAGE).get_page(request.GET.get("page"))
+    pagination_prefix = (urlencode({"q": query}) + "&") if query else ""
+    return render(
+        request,
+        "shop/search.html",
+        {
+            "query": query,
+            "page_obj": page_obj,
+            "pagination_prefix": pagination_prefix,
+            "pagination_items": _pagination_nav_items(page_obj),
+        },
+    )
 
 
 def _orders_for_user(request):

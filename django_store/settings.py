@@ -1,10 +1,29 @@
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-change-me"
-DEBUG = True
-ALLOWED_HOSTS = []
+
+def _env_bool(key: str, default: bool = False) -> bool:
+    val = os.environ.get(key)
+    if val is None:
+        return default
+    return val.strip().lower() in ("1", "true", "yes", "on")
+
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-change-me")
+DEBUG = _env_bool("DJANGO_DEBUG", True)
+
+_hosts = os.environ.get("DJANGO_ALLOWED_HOSTS", "").strip()
+if _hosts:
+    ALLOWED_HOSTS = [h.strip() for h in _hosts.split(",") if h.strip()]
+elif DEBUG:
+    ALLOWED_HOSTS = []
+else:
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+
+_csrf_origins = os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").strip()
+CSRF_TRUSTED_ORIGINS = [x.strip() for x in _csrf_origins.split(",") if x.strip()]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -26,6 +45,16 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+try:
+    import whitenoise  # noqa: F401
+
+    _HAS_WHITENOISE = True
+except ImportError:
+    _HAS_WHITENOISE = False
+
+if _HAS_WHITENOISE:
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 
 ROOT_URLCONF = "django_store.urls"
 
@@ -50,12 +79,27 @@ TEMPLATES = [
 WSGI_APPLICATION = "django_store.wsgi.application"
 ASGI_APPLICATION = "django_store.asgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+USE_POSTGRES = _env_bool("DJANGO_USE_POSTGRES", False)
+
+if USE_POSTGRES:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("POSTGRES_DB", "lending"),
+            "USER": os.environ.get("POSTGRES_USER", "lending"),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "lending"),
+            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        },
     }
-}
+else:
+    _sqlite_path = os.environ.get("SQLITE_PATH", "").strip()
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": Path(_sqlite_path) if _sqlite_path else BASE_DIR / "db.sqlite3",
+        },
+    }
 
 AUTH_PASSWORD_VALIDATORS = []
 
@@ -70,9 +114,14 @@ LANGUAGES = [
 ]
 
 STATIC_URL = "/static/"
-# Боевой UI обслуживается Django из templates/ и static/shop/.
-# Каталог frontend/ — отдельный HTML-прототип; runserver использует только пути выше.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}}
+if _HAS_WHITENOISE:
+    STORAGES["staticfiles"] = {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"}
+else:
+    STORAGES["staticfiles"] = {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -81,3 +130,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "no-reply@lendingstore.local"
+
+# Раздача upload через Django при DEBUG или в контейнере без nginx
+SERVE_MEDIA = _env_bool("DJANGO_SERVE_MEDIA", False)

@@ -43,6 +43,16 @@ def product_gallery_image_upload_to(instance: "ProductGalleryImage", filename: s
     return f"products/{cat_slug}/gallery/{base}-{suffix}{ext}"
 
 
+def category_image_upload_to(instance: "Category", filename: str) -> str:
+    """Файлы категорий: media/categories/<slug>.<ext>"""
+    ext = Path(filename).suffix.lower()
+    allowed = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    if ext not in allowed:
+        ext = ".jpg"
+    base = instance.slug or (str(instance.pk) if instance.pk else "draft")
+    return f"categories/{base}{ext}"
+
+
 class Category(models.Model):
     name = models.CharField("Название", max_length=120)
     slug = models.SlugField("Слаг", unique=True)
@@ -59,6 +69,13 @@ class Category(models.Model):
         help_text="Мета-описание для поиска (рекомендуется до ~320 символов).",
     )
     product_count = models.PositiveIntegerField("Товаров в каталоге", default=0)
+    image = models.ImageField(
+        "Изображение (загрузка)",
+        upload_to=category_image_upload_to,
+        blank=True,
+        null=True,
+        help_text="Если файл загружен, он имеет приоритет над URL.",
+    )
     image_url = models.URLField("URL изображения", blank=True)
     is_featured = models.BooleanField("Показывать на главной", default=True)
     sort_order = models.PositiveIntegerField("Порядок сортировки", default=0)
@@ -70,6 +87,15 @@ class Category(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def primary_image_url(self) -> str:
+        if self.image:
+            try:
+                return self.image.url
+            except ValueError:
+                pass
+        return (self.image_url or "").strip()
 
 
 class CategorySpecAttribute(models.Model):

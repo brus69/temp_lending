@@ -41,8 +41,31 @@ class CategoryAdmin(admin.ModelAdmin):
     list_editable = ("product_count", "is_featured", "sort_order")
     search_fields = ("name", "slug")
     inlines = [CategorySpecAttributeInline]
+    readonly_fields = ("image_preview",)
+
+    @admin.display(description="Предпросмотр изображения")
+    def image_preview(self, obj: Category) -> str:
+        url = obj.primary_image_url if obj and obj.pk else ""
+        if not url:
+            return "—"
+        return format_html('<img src="{}" alt="" style="max-height:140px;max-width:100%;object-fit:contain" />', url)
+
     fieldsets = (
-        (None, {"fields": ("name", "slug", "product_count", "image_url", "is_featured", "sort_order")}),
+        (
+            None,
+            {
+                "fields": (
+                    "name",
+                    "slug",
+                    "product_count",
+                    "image",
+                    "image_url",
+                    "image_preview",
+                    "is_featured",
+                    "sort_order",
+                ),
+            },
+        ),
         ("SEO", {"fields": ("meta_title", "meta_description"), "classes": ("collapse",)}),
     )
 

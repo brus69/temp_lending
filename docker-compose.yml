@@ -1,0 +1,23 @@
+# Базовый запуск: SQLite + один контейнер приложения
+# PostgreSQL: docker compose -f docker-compose.yml -f docker-compose.postgres.yml up --build
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-docker-dev-secret-change-me}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,web}
+      DJANGO_SERVE_MEDIA: ${DJANGO_SERVE_MEDIA:-1}
+      DJANGO_USE_POSTGRES: "0"
+      SQLITE_PATH: /data/db.sqlite3
+      DJANGO_COLLECTSTATIC: ${DJANGO_COLLECTSTATIC:-1}
+    volumes:
+      - sqlite_data:/data
+      - media_data:/app/media
+
+volumes:
+  sqlite_data:
+  media_data:

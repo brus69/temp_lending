@@ -17,7 +17,7 @@
       <a href="{% url 'sub_category_by_slug' category.slug %}" class="rounded-2xl bg-[#eceef1] p-3 hover:bg-[#e6e8ec]">
         <p class="text-[30px] font-semibold leading-tight text-slate-800">{{ category.name }}</p>
         <p class="mt-1 text-sm text-slate-500">{{ category.product_count }} товаров</p>
-        <img src="{{ category.image_url }}" alt="{{ category.name }}" class="mt-3 h-28 w-full object-contain">
+        <img src="{{ category.primary_image_url }}" alt="{{ category.name }}" class="mt-3 h-28 w-full object-contain">
       </a>
       {% endfor %}
     </div>

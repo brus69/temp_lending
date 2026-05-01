@@ -6,17 +6,18 @@
 <main class="vi-container mx-auto w-full space-y-5 px-4 py-8">
   <h1 class="text-3xl font-bold text-slate-800">Поиск товаров</h1>
   {% if query %}
-  <p class="text-sm text-slate-600">Запрос: <b>{{ query }}</b>. Найдено: {{ products|length }}</p>
+  <p class="text-sm text-slate-600">Запрос: <b>{{ query }}</b>. Найдено: {{ page_obj.paginator.count }}</p>
   {% else %}
   <p class="text-sm text-slate-600">Введите запрос в строке поиска в шапке сайта.</p>
   {% endif %}
 
   <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    {% for product in products %}
+    {% for product in page_obj %}
       {% include "shop/includes/product_listing_card.html" with product=product %}
     {% empty %}
     <p class="text-sm text-slate-500">По вашему запросу пока ничего не найдено.</p>
     {% endfor %}
   </section>
+  {% include "shop/includes/pagination.html" with page_obj=page_obj pagination_prefix=pagination_prefix %}
 </main>
 {% endblock %}
