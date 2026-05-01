@@ -128,6 +128,35 @@ def cart_remove(request, product_id):
     return redirect("cart")
 
 
+@require_POST
+def quick_order(request, product_id):
+    _seed_demo_data()
+    product = get_object_or_404(Product, id=product_id)
+    try:
+        qty = max(1, int(request.POST.get("quantity", 1) or 1))
+    except (TypeError, ValueError):
+        qty = 1
+    customer_name = request.POST.get("customer_name", "").strip()
+    phone = request.POST.get("phone", "").strip()
+    comment = request.POST.get("comment", "").strip()
+    if not customer_name or not phone:
+        return redirect("product_detail", slug=product.slug)
+    order = Order.objects.create(
+        customer_name=customer_name,
+        phone=phone,
+        address="(уточнить по телефону)",
+        comment=comment,
+        total_price=product.price * qty,
+    )
+    OrderItem.objects.create(
+        order=order,
+        product=product,
+        quantity=qty,
+        unit_price=product.price,
+    )
+    return redirect("checkout_success", order_id=order.id)
+
+
 def cart_page(request):
     items, total = build_cart_items(request.session)
     return render(request, "shop/cart.html", {"cart_items": items, "cart_total": total})

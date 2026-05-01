@@ -67,6 +67,8 @@ function initCartQtyForms() {
 function initQuickOrder() {
   const modal = document.querySelector("[data-quick-order-modal]");
   if (!modal) return;
+  if (modal.dataset.initialized === "true") return;
+  modal.dataset.initialized = "true";
 
   const dialog = modal.querySelector("[data-quick-order-dialog]");
   const qtyHidden = modal.querySelector("[data-quick-order-qty]");
@@ -81,27 +83,37 @@ function initQuickOrder() {
     return Number.isNaN(raw) || raw < 1 ? 1 : raw;
   };
 
+  const setOpenState = (isOpen) => {
+    modal.hidden = !isOpen;
+    modal.classList.toggle("hidden", !isOpen);
+    modal.classList.toggle("flex", isOpen);
+    modal.setAttribute("aria-hidden", String(!isOpen));
+    document.body.classList.toggle("overflow-hidden", isOpen);
+  };
+
   const open = () => {
     const qty = readCurrentQty();
     if (qtyHidden) qtyHidden.value = String(qty);
     if (qtyLabel) qtyLabel.textContent = String(qty);
-    modal.hidden = false;
-    document.body.classList.add("overflow-hidden");
+    setOpenState(true);
     if (nameInput) {
       window.requestAnimationFrame(() => nameInput.focus());
     }
   };
 
   const close = () => {
-    modal.hidden = true;
-    document.body.classList.remove("overflow-hidden");
+    setOpenState(false);
   };
+
+  setOpenState(false);
 
   openers.forEach((btn) => btn.addEventListener("click", open));
   closers.forEach((btn) => btn.addEventListener("click", close));
 
   modal.addEventListener("click", (event) => {
-    if (dialog && dialog.contains(event.target)) return;
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (dialog && dialog.contains(target)) return;
     close();
   });
 
