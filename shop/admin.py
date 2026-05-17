@@ -13,9 +13,11 @@ from django.utils.html import format_html
 from openpyxl import Workbook, load_workbook
 
 from .models import (
+    Article,
     Category,
     CategorySpecAttribute,
     Favorite,
+    News,
     Order,
     OrderItem,
     Organization,
@@ -26,6 +28,7 @@ from .models import (
     ProductReviewPhoto,
     ProductGalleryImage,
     ProductSpecValue,
+    Promotion,
     UserProfile,
 )
 
@@ -38,11 +41,19 @@ class CategorySpecAttributeInline(admin.TabularInline):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "product_count", "is_featured", "sort_order")
-    list_editable = ("product_count", "is_featured", "sort_order")
+    list_display = (
+        "name",
+        "slug",
+        "show_in_top_menu",
+        "default_listing_view",
+        "product_count",
+        "is_featured",
+        "sort_order",
+    )
+    list_editable = ("show_in_top_menu", "is_featured", "sort_order")
     search_fields = ("name", "slug")
     inlines = [CategorySpecAttributeInline]
-    readonly_fields = ("image_preview",)
+    readonly_fields = ("product_count", "image_preview")
 
     @admin.display(description="Предпросмотр изображения")
     def image_preview(self, obj: Category) -> str:
@@ -58,16 +69,24 @@ class CategoryAdmin(admin.ModelAdmin):
                 "fields": (
                     "name",
                     "slug",
-                    "product_count",
                     "image",
                     "image_url",
                     "image_preview",
                     "is_featured",
+                    "show_in_top_menu",
                     "sort_order",
+                    "default_listing_view",
                 ),
             },
         ),
         ("SEO", {"fields": ("meta_title", "meta_description"), "classes": ("collapse",)}),
+        (
+            "Каталог",
+            {
+                "fields": ("product_count",),
+                "description": "Считается автоматически по товарам в категории.",
+            },
+        ),
     )
 
 
@@ -262,6 +281,15 @@ class ProductAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
         if change and prev_cat is not None and prev_cat != obj.category_id:
             ProductSpecValue.objects.filter(product=obj).exclude(attribute__category_id=obj.category_id).delete()
+        Category.sync_product_counts()
+
+    def delete_model(self, request, obj):
+        super().delete_model(request, obj)
+        Category.sync_product_counts()
+
+    def delete_queryset(self, request, queryset):
+        super().delete_queryset(request, queryset)
+        Category.sync_product_counts()
 
     def get_urls(self):
         urls = super().get_urls()
@@ -431,6 +459,7 @@ class ProductAdmin(admin.ModelAdmin):
                     updated_count += 1
             except Exception as exc:
                 errors.append(f"Строка {idx}: {exc}")
+        Category.sync_product_counts()
         return imported_count, updated_count, errors
 
     def _read_csv_rows(self, upload):
@@ -539,3 +568,31 @@ class OrganizationAdmin(admin.ModelAdmin):
     list_display = ("name", "inn", "kpp", "owner", "created_at")
     list_filter = ("created_at",)
     search_fields = ("name", "inn", "kpp", "owner__email", "owner__username")
+
+
+class PublishedContentAdmin(admin.ModelAdmin):
+    list_display = ("title", "slug", "start_date", "end_date", "is_published", "published_at")
+    list_filter = ("is_published", "published_at", "start_date")
+    search_fields = ("title", "slug", "excerpt", "body")
+    prepopulated_fields = {"slug": ("title",)}
+    date_hierarchy = "published_at"
+    ordering = ("-published_at", "-id")
+    fieldsets = (
+        (None, {"fields": ("title", "slug", "excerpt", "image_url", "start_date", "end_date", "is_published", "published_at")}),
+        ("Текст", {"fields": ("body",)}),
+    )
+
+
+@admin.register(Article)
+class ArticleAdmin(PublishedContentAdmin):
+    pass
+
+
+@admin.register(News)
+class NewsAdmin(PublishedContentAdmin):
+    pass
+
+
+@admin.register(Promotion)
+class PromotionAdmin(PublishedContentAdmin):
+    pass

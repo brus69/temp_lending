@@ -13,7 +13,7 @@
 
   {% if query %}
   <div class="mb-4 flex flex-wrap items-center justify-end gap-4">
-    {% include "shop/includes/product_listing_toolbar.html" %}
+    {% include "shop/includes/product_listing_toolbar.html" with current_sort=current_sort %}
   </div>
   {% endif %}
 

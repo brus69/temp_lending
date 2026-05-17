@@ -100,84 +100,19 @@
     </button>
     {% endif %}
 
-    <div data-catalog-menu class="absolute left-4 right-4 top-full z-50 mt-2 hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-      <div class="grid max-h-[560px] grid-cols-[260px_1fr]">
-        <aside class="border-r border-slate-200 bg-slate-50 p-3">
-          <div class="mb-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium">Весь Ozon</div>
-          <div class="space-y-1 text-sm">
-            <a href="#" class="block rounded-lg bg-blue-100 px-3 py-2 font-semibold text-blue-700">Электроника</a>
-            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Одежда</a>
-            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Обувь</a>
-            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Дом и сад</a>
-            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Детские товары</a>
-            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Красота и здоровье</a>
-            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Бытовая техника</a>
-            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Спорт и отдых</a>
-            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Строительство и ремонт</a>
-            <a href="#" class="block rounded-lg px-3 py-2 hover:bg-slate-100">Продукты питания</a>
-          </div>
-        </aside>
+    {% include "shop/includes/catalog_menu.html" %}
 
-        <section class="overflow-y-auto p-6">
-          <h3 class="text-5xl font-bold text-slate-900">Электроника</h3>
-          <div class="mt-5 grid gap-8 lg:grid-cols-3">
-            <div class="space-y-5">
-              <div>
-                <p class="text-xl font-semibold">Телефоны и смарт-часы</p>
-                <ul class="mt-2 space-y-1 text-sm text-slate-600">
-                  <li>Смартфоны</li><li>Аксессуары для смартфонов</li><li>Смарт-часы</li><li>Фитнес-браслеты</li>
-                </ul>
-              </div>
-              <div>
-                <p class="text-xl font-semibold">Ноутбуки, планшеты и книги</p>
-                <ul class="mt-2 space-y-1 text-sm text-slate-600">
-                  <li>Ноутбуки</li><li>Игровые ноутбуки</li><li>Планшеты</li><li>Электронные книги</li>
-                </ul>
-              </div>
-            </div>
-            <div class="space-y-5">
-              <div>
-                <p class="text-xl font-semibold">Компьютеры и периферия</p>
-                <ul class="mt-2 space-y-1 text-sm text-slate-600">
-                  <li>Мониторы</li><li>Системные блоки</li><li>Ноутбуки</li><li>Периферия</li>
-                </ul>
-              </div>
-              <div>
-                <p class="text-xl font-semibold">Фото и видеокамеры</p>
-                <ul class="mt-2 space-y-1 text-sm text-slate-600">
-                  <li>Экшн-камеры</li><li>Видеокамеры</li><li>Объективы</li><li>Компактные камеры</li>
-                </ul>
-              </div>
-            </div>
-            <div class="space-y-5">
-              <div>
-                <p class="text-xl font-semibold">Навигаторы</p>
-                <ul class="mt-2 space-y-1 text-sm text-slate-600">
-                  <li>GPS-трекеры</li><li>Туристические навигаторы</li><li>Автонавигаторы</li>
-                </ul>
-              </div>
-              <div>
-                <p class="text-xl font-semibold">Умный дом</p>
-                <ul class="mt-2 space-y-1 text-sm text-slate-600">
-                  <li>Датчики и регуляторы</li><li>Комплекты умного дома</li><li>Освещение</li><li>Розетки</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
   </div>
   <div class="mx-auto flex w-full max-w-[1240px] gap-5 overflow-x-auto px-4 py-2 text-sm font-medium text-slate-700">
-    <a href="/category/" class="whitespace-nowrap text-red-600">Акции</a>
-    <span class="vi-top-link whitespace-nowrap">Инструмент</span>
-    <span class="vi-top-link whitespace-nowrap">Крепеж</span>
-    <span class="vi-top-link whitespace-nowrap">Все для сада</span>
-    <span class="vi-top-link whitespace-nowrap">Электрика</span>
-    <span class="vi-top-link whitespace-nowrap">Силовая техника</span>
-    <span class="vi-top-link whitespace-nowrap">Спецодежда</span>
-    <span class="vi-top-link whitespace-nowrap">Сантехника</span>
-    <button class="ml-auto whitespace-nowrap rounded-full bg-slate-100 px-4 py-1">Для юрлиц</button>
+    {% for category in header_menu_categories %}
+    <a
+      href="{% url 'sub_category_by_slug' category.slug %}"
+      class="vi-top-link whitespace-nowrap {% if request.resolver_match.url_name == 'sub_category_by_slug' and request.resolver_match.kwargs.slug == category.slug %}text-red-600{% endif %}"
+    >
+      {{ category.name }}
+    </a>
+    {% endfor %}
+    <button type="button" class="ml-auto whitespace-nowrap rounded-full bg-slate-100 px-4 py-1">Для юрлиц</button>
   </div>
 </header>
 {% if not request.user.is_authenticated %}

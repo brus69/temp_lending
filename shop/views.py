@@ -20,8 +20,10 @@ from django.views.decorators.http import require_POST
 from .cart import add_to_cart, build_cart_items, clear_cart, remove_from_cart, set_quantity
 from .forms import ProductQuestionForm, ProductReviewForm, validate_review_image_files
 from .models import (
+    Article,
     Category,
     Favorite,
+    News,
     Order,
     OrderItem,
     Organization,
@@ -31,14 +33,38 @@ from .models import (
     ProductReview,
     ProductReviewPhoto,
     ProductSpecValue,
+    Promotion,
     UserProfile,
+    product_gallery_prefetch,
     product_labels_prefetch,
+    product_specs_prefetch,
     sync_product_specs_from_json,
 )
 
 EMAIL_CONFIRM_MAX_AGE_SECONDS = 60 * 60 * 24
 
 PRODUCTS_PER_PAGE = 12
+
+PRODUCT_SORT_POPULAR = "popular"
+PRODUCT_SORT_PRICE_ASC = "price_asc"
+PRODUCT_SORT_PRICE_DESC = "price_desc"
+VALID_PRODUCT_SORTS = frozenset(
+    {PRODUCT_SORT_POPULAR, PRODUCT_SORT_PRICE_ASC, PRODUCT_SORT_PRICE_DESC},
+)
+
+
+def _normalize_product_sort(raw: str | None) -> str:
+    if raw in VALID_PRODUCT_SORTS:
+        return raw
+    return PRODUCT_SORT_POPULAR
+
+
+def _apply_product_sort(qs, sort: str):
+    if sort == PRODUCT_SORT_PRICE_ASC:
+        return qs.order_by("price", "name")
+    if sort == PRODUCT_SORT_PRICE_DESC:
+        return qs.order_by("-price", "name")
+    return qs.order_by("-reviews_count", "-rating", "name")
 
 
 def _pagination_query_prefix(request, *, exclude: frozenset[str] = frozenset({"page"})) -> str:
@@ -118,7 +144,11 @@ def _apply_subcategory_filters(category: Category, request_get):
     qs = (
         Product.objects.filter(category=category, is_active=True)
         .select_related("category")
-        .prefetch_related(product_labels_prefetch())
+        .prefetch_related(
+            product_labels_prefetch(),
+            product_specs_prefetch(),
+            product_gallery_prefetch(),
+        )
     )
 
     price_min = _parse_price_param(request_get.get("price_min"))
@@ -136,7 +166,7 @@ def _apply_subcategory_filters(category: Category, request_get):
                 spec_values__value__in=selected,
             ).distinct()
 
-    return qs.order_by("name")
+    return _apply_product_sort(qs, _normalize_product_sort(request_get.get("sort")))
 
 
 def _products_show_label(count: int) -> str:
@@ -973,9 +1003,7 @@ _DEMO_PRODUCT_SEEDS: list[tuple[str, str, str, str, Decimal, Decimal | None, str
 
 def _sync_category_product_counts() -> None:
     """Обновляет product_count по фактическому числу товаров в категории."""
-    for category in Category.objects.annotate(actual_count=Count("products")):
-        if category.product_count != category.actual_count:
-            Category.objects.filter(pk=category.pk).update(product_count=category.actual_count)
+    Category.sync_product_counts()
 
 
 def _sync_product_specs_from_dict(product: Product, specs: dict) -> None:
@@ -1189,6 +1217,7 @@ def sub_category(request, slug=None):
     page_obj = Paginator(products_qs, PRODUCTS_PER_PAGE).get_page(request.GET.get("page"))
     filtered_products_count = page_obj.paginator.count
     has_active_filters = _has_active_subcategory_filters(request.GET)
+    current_sort = _normalize_product_sort(request.GET.get("sort"))
     return render(
         request,
         "shop/sub_category.html",
@@ -1200,6 +1229,7 @@ def sub_category(request, slug=None):
             "filtered_products_count": filtered_products_count,
             "filter_submit_label": _products_show_label(filtered_products_count),
             "has_active_filters": has_active_filters,
+            "current_sort": current_sort,
             "page_obj": page_obj,
             "pagination_prefix": _pagination_query_prefix(request),
             "pagination_items": _pagination_nav_items(page_obj),
@@ -1430,16 +1460,29 @@ def search(request):
             Product.objects.active()
             .filter(Q(name__icontains=query) | Q(sku__icontains=query) | Q(description__icontains=query))
             .select_related("category")
-            .prefetch_related(product_labels_prefetch())
-            .order_by("name")
+            .prefetch_related(
+                product_labels_prefetch(),
+                product_specs_prefetch(),
+                product_gallery_prefetch(),
+            )
         )
+        current_sort = _normalize_product_sort(request.GET.get("sort"))
+        products_qs = _apply_product_sort(products_qs, current_sort)
+    else:
+        current_sort = PRODUCT_SORT_POPULAR
     page_obj = Paginator(products_qs, PRODUCTS_PER_PAGE).get_page(request.GET.get("page"))
-    pagination_prefix = (urlencode({"q": query}) + "&") if query else ""
+    pagination_pairs: list[tuple[str, str]] = []
+    if query:
+        pagination_pairs.append(("q", query))
+    if current_sort != PRODUCT_SORT_POPULAR:
+        pagination_pairs.append(("sort", current_sort))
+    pagination_prefix = (urlencode(pagination_pairs) + "&") if pagination_pairs else ""
     return render(
         request,
         "shop/search.html",
         {
             "query": query,
+            "current_sort": current_sort,
             "page_obj": page_obj,
             "pagination_prefix": pagination_prefix,
             "pagination_items": _pagination_nav_items(page_obj),
@@ -1781,4 +1824,124 @@ def auth_confirm_email(request, token):
         request,
         "shop/auth_confirm_email_result.html",
         {"success": True, "title": "Email подтвержден", "message": "Аккаунт активирован, вы успешно вошли в систему."},
+    )
+
+
+def _published_content_queryset(model):
+    return model.objects.filter(is_published=True)
+
+
+def _content_list_context(
+    *,
+    page_title: str,
+    page_heading: str,
+    breadcrumb_label: str,
+    list_url_name: str,
+    detail_url_name: str,
+    items,
+):
+    return {
+        "page_title": page_title,
+        "page_heading": page_heading,
+        "breadcrumb_label": breadcrumb_label,
+        "list_url_name": list_url_name,
+        "detail_url_name": detail_url_name,
+        "items": items,
+    }
+
+
+def _content_detail_context(*, item, list_url_name: str, list_label: str, breadcrumb_label: str):
+    return {
+        "page_title": item.title,
+        "item": item,
+        "list_url_name": list_url_name,
+        "list_label": list_label,
+        "breadcrumb_label": breadcrumb_label,
+    }
+
+
+def article_list(request):
+    return render(
+        request,
+        "shop/content_page_list.html",
+        _content_list_context(
+            page_title="Статьи",
+            page_heading="Полезные статьи о крепеже и инструменте",
+            breadcrumb_label="Статьи",
+            list_url_name="article_list",
+            detail_url_name="article_detail",
+            items=_published_content_queryset(Article),
+        ),
+    )
+
+
+def article_detail(request, slug):
+    item = get_object_or_404(_published_content_queryset(Article), slug=slug)
+    return render(
+        request,
+        "shop/content_page_detail.html",
+        _content_detail_context(
+            item=item,
+            list_url_name="article_list",
+            list_label="Статьи",
+            breadcrumb_label="Статьи",
+        ),
+    )
+
+
+def news_list(request):
+    return render(
+        request,
+        "shop/content_page_list.html",
+        _content_list_context(
+            page_title="Новости",
+            page_heading="Новости компании и отрасли",
+            breadcrumb_label="Новости",
+            list_url_name="news_list",
+            detail_url_name="news_detail",
+            items=_published_content_queryset(News),
+        ),
+    )
+
+
+def news_detail(request, slug):
+    item = get_object_or_404(_published_content_queryset(News), slug=slug)
+    return render(
+        request,
+        "shop/content_page_detail.html",
+        _content_detail_context(
+            item=item,
+            list_url_name="news_list",
+            list_label="Новости",
+            breadcrumb_label="Новости",
+        ),
+    )
+
+
+def promotion_list(request):
+    return render(
+        request,
+        "shop/content_page_list.html",
+        _content_list_context(
+            page_title="Акции",
+            page_heading="Промокоды, акции, скидки, купоны, конкурсы",
+            breadcrumb_label="Наши акции",
+            list_url_name="promotion_list",
+            detail_url_name="promotion_detail",
+            items=_published_content_queryset(Promotion),
+        ),
+    )
+
+
+def promotion_detail(request, slug):
+    item = get_object_or_404(_published_content_queryset(Promotion), slug=slug)
+    return render(
+        request,
+        "shop/content_page_detail.html",
+        _content_detail_context(
+            item=item,
+            list_url_name="promotion_list",
+            list_label="Акции",
+            breadcrumb_label="Наши акции",
+        ),
     )

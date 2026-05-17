@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Avg, Count, Prefetch
+from django.utils import timezone
 from django.utils.text import slugify
 
 
@@ -55,6 +56,10 @@ def category_image_upload_to(instance: "Category", filename: str) -> str:
 
 
 class Category(models.Model):
+    class ListingView(models.TextChoices):
+        GRID = "grid", "Плитка"
+        LIST = "list", "Список"
+
     name = models.CharField("Название", max_length=120)
     slug = models.SlugField("Слаг", unique=True)
     meta_title = models.CharField(
@@ -79,7 +84,19 @@ class Category(models.Model):
     )
     image_url = models.URLField("URL изображения", blank=True)
     is_featured = models.BooleanField("Показывать на главной", default=True)
+    show_in_top_menu = models.BooleanField(
+        "Верхнее меню",
+        default=False,
+        help_text="Показывать ссылку на категорию в горизонтальной полосе под шапкой сайта.",
+    )
     sort_order = models.PositiveIntegerField("Порядок сортировки", default=0)
+    default_listing_view = models.CharField(
+        "Отображение товаров по умолчанию",
+        max_length=8,
+        choices=ListingView.choices,
+        default=ListingView.GRID,
+        help_text="Как показывать каталог этой категории при первом открытии страницы.",
+    )
 
     class Meta:
         verbose_name = "Категория"
@@ -88,6 +105,13 @@ class Category(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @classmethod
+    def sync_product_counts(cls) -> None:
+        """Пересчитывает product_count по числу товаров в каждой категории."""
+        for category in cls.objects.annotate(actual_count=Count("products")):
+            if category.product_count != category.actual_count:
+                cls.objects.filter(pk=category.pk).update(product_count=category.actual_count)
 
     @property
     def primary_image_url(self) -> str:
@@ -170,6 +194,23 @@ class ProductLabel(models.Model):
 
 def product_labels_prefetch() -> Prefetch:
     return Prefetch("labels", queryset=ProductLabel.objects.order_by("sort_order", "name"))
+
+
+def product_specs_prefetch() -> Prefetch:
+    return Prefetch(
+        "spec_values",
+        queryset=ProductSpecValue.objects.select_related("attribute").order_by(
+            "attribute__sort_order",
+            "attribute__id",
+        ),
+    )
+
+
+def product_gallery_prefetch() -> Prefetch:
+    return Prefetch(
+        "gallery_images",
+        queryset=ProductGalleryImage.objects.order_by("sort_order", "id"),
+    )
 
 
 class ProductQuerySet(models.QuerySet):
@@ -285,6 +326,16 @@ class Product(models.Model):
             except ValueError:
                 pass
         return (self.image_url or "").strip()
+
+    @property
+    def has_discount(self) -> bool:
+        return self.old_price is not None and self.old_price > self.price
+
+    @property
+    def discount_percent(self) -> int | None:
+        if not self.has_discount or not self.old_price:
+            return None
+        return int(round((self.old_price - self.price) / self.old_price * 100))
 
     def ordered_spec_values(self):
         """Значения характеристик с предзагрузкой атрибута, по порядку категории."""
@@ -595,3 +646,76 @@ class Organization(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.inn})"
+
+
+class PublishedContentBase(models.Model):
+    title = models.CharField("Заголовок", max_length=200)
+    slug = models.SlugField("Слаг", max_length=220, unique=True)
+    excerpt = models.CharField("Краткое описание", max_length=320, blank=True)
+    body = models.TextField("Текст")
+    image_url = models.URLField(
+        "URL обложки",
+        max_length=500,
+        blank=True,
+        help_text="Изображение для карточки в списке (рекомендуется 800×450).",
+    )
+    start_date = models.DateField("Дата начала", null=True, blank=True)
+    end_date = models.DateField("Дата окончания", null=True, blank=True)
+    is_published = models.BooleanField("Опубликовано", default=True)
+    published_at = models.DateTimeField("Дата публикации", default=timezone.now)
+    created_at = models.DateTimeField("Создано", auto_now_add=True)
+    updated_at = models.DateTimeField("Обновлено", auto_now=True)
+
+    class Meta:
+        abstract = True
+        ordering = ["-published_at", "-id"]
+
+    def __str__(self) -> str:
+        return self.title
+
+    @property
+    def card_image_url(self) -> str:
+        if self.image_url:
+            return self.image_url
+        return "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=800&q=80"
+
+    @property
+    def display_start_date(self):
+        if self.start_date:
+            return self.start_date
+        if self.published_at:
+            return self.published_at.date()
+        return None
+
+    @property
+    def display_end_date(self):
+        if self.end_date:
+            return self.end_date
+        if self.start_date:
+            return self.start_date
+        if self.published_at:
+            return self.published_at.date()
+        return None
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title) or "item"
+        super().save(*args, **kwargs)
+
+
+class Article(PublishedContentBase):
+    class Meta:
+        verbose_name = "Статья"
+        verbose_name_plural = "Статьи"
+
+
+class News(PublishedContentBase):
+    class Meta:
+        verbose_name = "Новость"
+        verbose_name_plural = "Новости"
+
+
+class Promotion(PublishedContentBase):
+    class Meta:
+        verbose_name = "Акция"
+        verbose_name_plural = "Акции"

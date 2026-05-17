@@ -35,6 +35,28 @@ function initCatalogMenu() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeMenu();
   });
+
+  const triggers = menu.querySelectorAll("[data-catalog-category-trigger]");
+  const panels = menu.querySelectorAll("[data-catalog-panel]");
+  if (!triggers.length || !panels.length) return;
+
+  const activateCategory = (categoryId) => {
+    triggers.forEach((trigger) => {
+      const active = trigger.dataset.catalogCategoryTrigger === categoryId;
+      trigger.classList.toggle("is-active", active);
+    });
+    panels.forEach((panel) => {
+      panel.classList.toggle("hidden", panel.dataset.catalogPanel !== categoryId);
+    });
+  };
+
+  activateCategory(triggers[0].dataset.catalogCategoryTrigger);
+  triggers.forEach((trigger) => {
+    trigger.addEventListener("click", (event) => {
+      event.preventDefault();
+      activateCategory(trigger.dataset.catalogCategoryTrigger);
+    });
+  });
 }
 
 function initCartQtyForms() {
@@ -676,6 +698,34 @@ function initProductGallery() {
   });
 }
 
+function getProductSortSelect() {
+  return document.querySelector("[data-product-sort]");
+}
+
+function appendProductSortParam(params) {
+  const sortSelect = getProductSortSelect();
+  if (!(sortSelect instanceof HTMLSelectElement) || !sortSelect.value) return;
+  params.set("sort", sortSelect.value);
+}
+
+function initProductListingSort() {
+  const sortSelect = getProductSortSelect();
+  if (!(sortSelect instanceof HTMLSelectElement)) return;
+
+  sortSelect.addEventListener("change", () => {
+    const filterForm = document.querySelector("[data-subcategory-filters]");
+    if (filterForm instanceof HTMLFormElement) {
+      filterForm.requestSubmit();
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("sort", sortSelect.value);
+    url.searchParams.delete("page");
+    window.location.href = url.toString();
+  });
+}
+
 function initSubCategoryFilters() {
   const form = document.querySelector("[data-subcategory-filters]");
   if (!form) return;
@@ -750,6 +800,7 @@ function initSubCategoryFilters() {
       if (value === "" || key === "price_min" || key === "price_max" || key === "page") return;
       params.append(key, value);
     });
+    appendProductSortParam(params);
     const query = params.toString();
     window.location.href = query ? `${action}?${query}` : action;
   };
@@ -1006,12 +1057,80 @@ function initSubCategoryFilters() {
 
 const PRODUCT_LISTING_VIEW_KEY = "vi-product-listing-view";
 
+function initCopyTextButtons() {
+  document.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest("[data-copy-text]");
+    if (!(button instanceof HTMLButtonElement)) return;
+    const text = button.dataset.copyText?.trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      const prev = button.title;
+      button.title = "Скопировано";
+      window.setTimeout(() => {
+        button.title = prev || "Скопировать";
+      }, 1500);
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+function getListingViewStorageKey(listing) {
+  if (!(listing instanceof HTMLElement)) return PRODUCT_LISTING_VIEW_KEY;
+  const slug = listing.dataset.categorySlug?.trim();
+  return slug ? `${PRODUCT_LISTING_VIEW_KEY}:${slug}` : PRODUCT_LISTING_VIEW_KEY;
+}
+
+function getCategoryDefaultListingView(listing) {
+  if (!(listing instanceof HTMLElement)) return "grid";
+  return listing.dataset.defaultListingView === "list" ? "list" : "grid";
+}
+
+function readListingViewPreference(storageKey, categoryDefault) {
+  const raw = window.localStorage.getItem(storageKey);
+  if (!raw) return categoryDefault;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      (parsed.view === "list" || parsed.view === "grid") &&
+      parsed.default === categoryDefault
+    ) {
+      return parsed.view;
+    }
+  } catch {
+    /* legacy string value */
+  }
+
+  if (raw === "list" || raw === "grid") {
+    return categoryDefault;
+  }
+
+  return categoryDefault;
+}
+
+function writeListingViewPreference(storageKey, view, categoryDefault) {
+  window.localStorage.setItem(storageKey, JSON.stringify({ view, default: categoryDefault }));
+}
+
+function resolveListingView(listing) {
+  if (!(listing instanceof HTMLElement)) return "grid";
+  const categoryDefault = getCategoryDefaultListingView(listing);
+  const storageKey = getListingViewStorageKey(listing);
+  return readListingViewPreference(storageKey, categoryDefault);
+}
+
 function initProductListingView() {
   const listings = document.querySelectorAll("[data-product-listing]");
   if (!listings.length) return;
 
-  const savedView = window.localStorage.getItem(PRODUCT_LISTING_VIEW_KEY);
-  const initialView = savedView === "list" ? "list" : "grid";
+  const primaryListing = listings[0];
+  const initialView = resolveListingView(primaryListing);
 
   const applyView = (view) => {
     const isList = view === "list";
@@ -1026,7 +1145,11 @@ function initProductListingView() {
         button.setAttribute("aria-pressed", active ? "true" : "false");
       });
     });
-    window.localStorage.setItem(PRODUCT_LISTING_VIEW_KEY, view);
+    writeListingViewPreference(
+      getListingViewStorageKey(primaryListing),
+      view,
+      getCategoryDefaultListingView(primaryListing),
+    );
   };
 
   document.querySelectorAll("[data-listing-view-toggle]").forEach((toggle) => {
@@ -1045,6 +1168,7 @@ function initProductListingView() {
 
 document.addEventListener("DOMContentLoaded", applyDynamicBits);
 document.addEventListener("DOMContentLoaded", initCatalogMenu);
+document.addEventListener("DOMContentLoaded", initProductListingSort);
 document.addEventListener("DOMContentLoaded", initSubCategoryFilters);
 document.addEventListener("DOMContentLoaded", initCartQtyForms);
 document.addEventListener("DOMContentLoaded", initQuickOrder);
@@ -1053,3 +1177,4 @@ document.addEventListener("DOMContentLoaded", initCityPicker);
 document.addEventListener("DOMContentLoaded", initReviewRatingStars);
 document.addEventListener("DOMContentLoaded", initProductGallery);
 document.addEventListener("DOMContentLoaded", initProductListingView);
+document.addEventListener("DOMContentLoaded", initCopyTextButtons);

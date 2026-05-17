@@ -1,0 +1,78 @@
+<div data-catalog-menu class="absolute left-4 right-4 top-full z-50 mt-2 hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+  <div class="grid max-h-[560px] grid-cols-[260px_1fr]">
+    <aside class="overflow-y-auto border-r border-slate-200 bg-slate-50 p-3">
+      <a
+        href="{% url 'category' %}"
+        class="mb-3 block rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+      >
+        Весь каталог
+      </a>
+      {% if catalog_menu_categories %}
+      <div class="space-y-1 text-sm" data-catalog-category-list>
+        {% for item in catalog_menu_categories %}
+        <button
+          type="button"
+          data-catalog-category-trigger="{{ item.category.id }}"
+          class="catalog-category-trigger block w-full rounded-lg px-3 py-2 text-left text-slate-800 hover:bg-slate-100{% if forloop.first %} is-active{% endif %}"
+        >
+          {{ item.category.name }}
+        </button>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">Категории пока не добавлены.</p>
+      {% endif %}
+    </aside>
+
+    <section class="overflow-y-auto p-6">
+      {% if catalog_menu_categories %}
+      {% for item in catalog_menu_categories %}
+      <div
+        data-catalog-panel="{{ item.category.id }}"
+        class="catalog-category-panel{% if not forloop.first %} hidden{% endif %}"
+      >
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <h3 class="text-3xl font-bold text-slate-900 md:text-4xl">{{ item.category.name }}</h3>
+          <a
+            href="{% url 'sub_category_by_slug' item.category.slug %}"
+            class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+          >
+            Все товары · {{ item.category.product_count }}
+          </a>
+        </div>
+        {% if item.attributes %}
+        <div class="mt-5 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {% for attr in item.attributes %}
+          <div>
+            <p class="text-lg font-semibold text-slate-900">{{ attr.name }}</p>
+            <ul class="mt-2 space-y-1 text-sm text-slate-600">
+              {% for value in attr.values %}
+              <li>
+                <a
+                  href="{% url 'sub_category_by_slug' item.category.slug %}?spec_{{ attr.id }}={{ value|urlencode }}"
+                  class="hover:text-red-600"
+                >
+                  {{ value }}
+                </a>
+              </li>
+              {% empty %}
+              <li class="text-slate-400">Значения появятся после добавления товаров</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="mt-4 text-sm text-slate-500">
+          Для категории ещё не заданы характеристики.
+          <a href="{% url 'sub_category_by_slug' item.category.slug %}" class="text-red-600 hover:underline">Перейти в категорию</a>
+        </p>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="text-sm text-slate-500">Добавьте категории в админке, чтобы они отображались в каталоге.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>

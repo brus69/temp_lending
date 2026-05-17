@@ -181,3 +181,22 @@ class SubCategoryFiltersTests(TestCase):
         self.assertIn("M10", filter_values)
         self.assertIn("M14", filter_values)
         self.assertGreaterEqual(len(filter_values), 8)
+
+    def test_product_sort_reorders_listing(self):
+        _seed_demo_data()
+        slug = "metizy"
+        asc = self.client.get(f"/sub-category/{slug}/", {"sort": "price_asc"})
+        desc = self.client.get(f"/sub-category/{slug}/", {"sort": "price_desc"})
+        self.assertEqual(asc.status_code, 200)
+        self.assertEqual(desc.status_code, 200)
+        asc_prices = [product.price for product in asc.context["page_obj"]]
+        desc_prices = [product.price for product in desc.context["page_obj"]]
+        self.assertGreater(len(asc_prices), 1)
+        self.assertEqual(asc_prices, sorted(asc_prices))
+        self.assertEqual(desc_prices, sorted(desc_prices, reverse=True))
+        self.assertNotEqual(asc_prices, desc_prices)
+
+    def test_sort_preserved_in_pagination_links(self):
+        _seed_demo_data()
+        response = self.client.get("/sub-category/metizy/", {"sort": "price_asc", "page": "1"})
+        self.assertContains(response, "sort=price_asc")

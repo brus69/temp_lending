@@ -17,9 +17,12 @@
       <div>
         <p class="font-semibold">Акции</p>
         <ul class="mt-2 space-y-1 text-sm">
-          <li><a class="vi-footer-link" href="#">Наши акции</a></li>
-          <li><a class="vi-footer-link" href="#">Поставщикам</a></li>
-          <li><a class="vi-footer-link" href="#">Партнерам</a></li>
+          <li><a class="vi-footer-link font-semibold" href="{% url 'promotion_list' %}">Все акции</a></li>
+          {% for item in footer_promotions|slice:":3" %}
+          <li><a class="vi-footer-link" href="{% url 'promotion_detail' item.slug %}">{{ item.title|truncatechars:28 }}</a></li>
+          {% empty %}
+          <li class="text-slate-500">Нет акций</li>
+          {% endfor %}
         </ul>
       </div>
       <div>
@@ -41,6 +44,41 @@
       <div class="rounded-2xl border border-slate-200 bg-white p-4 text-sm">
         <p class="font-semibold">Сканируйте и скачивайте приложение</p>
         <div class="mt-3 h-24 rounded-lg bg-slate-200"></div>
+      </div>
+    </div>
+    <div class="mt-8 grid gap-8 border-t border-slate-300 pt-6 md:grid-cols-3">
+      <div>
+        <p class="font-semibold">Статьи</p>
+        <ul class="mt-2 max-h-64 space-y-1 overflow-y-auto text-sm">
+          <li><a class="vi-footer-link font-semibold" href="{% url 'article_list' %}">Все статьи</a></li>
+          {% for item in footer_articles %}
+          <li><a class="vi-footer-link" href="{% url 'article_detail' item.slug %}">{{ item.title }}</a></li>
+          {% empty %}
+          <li class="text-slate-500">Нет статей</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div>
+        <p class="font-semibold">Новости</p>
+        <ul class="mt-2 max-h-64 space-y-1 overflow-y-auto text-sm">
+          <li><a class="vi-footer-link font-semibold" href="{% url 'news_list' %}">Все новости</a></li>
+          {% for item in footer_news %}
+          <li><a class="vi-footer-link" href="{% url 'news_detail' item.slug %}">{{ item.title }}</a></li>
+          {% empty %}
+          <li class="text-slate-500">Нет новостей</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div>
+        <p class="font-semibold">Акции (все)</p>
+        <ul class="mt-2 max-h-64 space-y-1 overflow-y-auto text-sm">
+          <li><a class="vi-footer-link font-semibold" href="{% url 'promotion_list' %}">Все акции</a></li>
+          {% for item in footer_promotions %}
+          <li><a class="vi-footer-link" href="{% url 'promotion_detail' item.slug %}">{{ item.title }}</a></li>
+          {% empty %}
+          <li class="text-slate-500">Нет акций</li>
+          {% endfor %}
+        </ul>
       </div>
     </div>
     <p class="mt-6 text-sm text-slate-500">© <span data-current-year></span> LendingStore</p>

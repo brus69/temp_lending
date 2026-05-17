@@ -1,12 +1,12 @@
 {# product; optional listing_price_class (default mt-2 text-2xl font-bold) #}
 <article class="vi-product-card relative flex flex-col p-3">
   <div class="vi-product-card__layout flex min-w-0 flex-1 flex-col">
-    <div class="vi-product-card__badges">
-      {% include "shop/includes/product_badges.html" with product=product %}
-    </div>
-    <div class="vi-product-card__main flex min-w-0 flex-1 flex-col">
-      <div class="vi-product-card__image-wrap relative mt-2 shrink-0">
-        <div class="vi-product-card__favorite absolute right-2 top-2 z-10">
+    <div class="vi-product-card__col-media">
+      <div class="vi-product-card__image-wrap relative shrink-0">
+        <div class="vi-product-card__badges">
+          {% include "shop/includes/product_badges.html" with product=product %}
+        </div>
+        <div class="vi-product-card__favorite absolute z-10">
           {% include "shop/includes/favorite_button.html" with product=product next=request.get_full_path compact=True %}
         </div>
         <a
@@ -15,30 +15,93 @@
         >
           <img src="{{ product.primary_image_url }}" alt="{{ product.name }}" class="h-36 w-full object-contain" loading="lazy">
         </a>
-      </div>
-      <div class="vi-product-card__meta mt-2 min-w-0 flex-1">
-        <a
-          href="{% url 'product_detail' product.slug %}"
-          class="block text-sm font-medium text-slate-900 no-underline transition-colors hover:text-red-600"
-        >
-          {{ product.name }}
-        </a>
-        <p class="mt-2 flex flex-wrap items-center gap-x-1 text-xs text-slate-600">
-          <span class="text-amber-500" aria-hidden="true">★</span>
-          <span>{{ product.rating|floatformat:1 }}</span>
-          <span class="text-slate-400">·</span>
-          <span>{{ product.reviews_count }} отзывов</span>
-        </p>
-        {% with qty=product.stock_store|add:product.stock_warehouse %}
-        <p class="mt-1 text-xs text-slate-600">
-          {% if qty > 0 %}В наличии: {{ qty }} шт.{% else %}Нет в наличии{% endif %}
-        </p>
+        {% with gallery_count=product.gallery_images.all|length %}
+        {% if gallery_count > 1 %}
+        <div class="vi-product-card__gallery-dots vi-product-card__list-only" aria-hidden="true">
+          {% for gi in product.gallery_images.all|slice:":5" %}
+          <span{% if forloop.first %} class="is-active"{% endif %}></span>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% endwith %}
       </div>
     </div>
-    <div class="vi-product-card__buy mt-2 shrink-0">
-      <p class="{% firstof listing_price_class "text-2xl font-bold text-slate-900" %}">{{ product.price|floatformat:0 }} ₽</p>
-      {% include "shop/includes/cart_add_form.html" with product=product next=request.get_full_path compact=True %}
+
+    <div class="vi-product-card__col-info min-w-0 flex-1">
+      <a
+        href="{% url 'product_detail' product.slug %}"
+        class="vi-product-card__title block font-medium text-slate-900 no-underline transition-colors hover:text-red-600"
+      >
+        {{ product.name }}
+      </a>
+      <p class="vi-product-card__rating mt-2 flex flex-wrap items-center gap-x-1.5 text-xs text-slate-600">
+        <span class="text-red-500" aria-hidden="true">★</span>
+        <span class="font-medium text-slate-800">{{ product.rating|floatformat:1 }}</span>
+        <span class="text-slate-500">({{ product.reviews_count }})</span>
+        <span class="vi-product-card__sku-row hidden text-slate-300">·</span>
+        <span class="vi-product-card__sku-row hidden items-center gap-1 text-slate-500 sm:inline-flex">
+          <span>Код: <span class="font-medium text-slate-700" data-product-sku>{{ product.sku }}</span></span>
+          <button
+            type="button"
+            class="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            data-copy-text="{{ product.sku }}"
+            title="Скопировать код товара"
+            aria-label="Скопировать код товара"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </span>
+      </p>
+      <dl class="vi-product-card__specs vi-product-card__list-only mt-3 space-y-1 text-sm">
+        {% for sv in product.spec_values.all|slice:":5" %}
+        <div class="flex flex-wrap gap-x-1">
+          <dt class="text-slate-500">{{ sv.attribute.name }}:</dt>
+          <dd class="font-medium text-slate-900">{{ sv.value }}</dd>
+        </div>
+        {% endfor %}
+      </dl>
+      <p class="vi-product-card__stock-short vi-product-card__grid-only mt-1 text-xs text-slate-600">
+        {% with qty=product.stock_store|add:product.stock_warehouse %}
+        {% if qty > 0 %}В наличии: {{ qty }} шт.{% else %}Нет в наличии{% endif %}
+        {% endwith %}
+      </p>
+    </div>
+
+    <div class="vi-product-card__col-buy shrink-0">
+      <div class="vi-product-card__price-block">
+        <div class="flex flex-wrap items-baseline gap-2">
+          <p class="vi-product-card__price {% firstof listing_price_class "text-2xl font-bold text-slate-900" %}">
+            {{ product.price|floatformat:0 }} ₽
+          </p>
+          {% if product.has_discount %}
+          <span class="vi-product-card__list-only rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-semibold text-white">
+            −{{ product.discount_percent }}%
+          </span>
+          {% endif %}
+        </div>
+        {% if product.has_discount %}
+        <p class="vi-product-card__list-only mt-1 text-sm text-slate-400 line-through">
+          {{ product.old_price|floatformat:0 }} ₽
+        </p>
+        {% endif %}
+      </div>
+      <div class="vi-product-card__stock-list vi-product-card__list-only mt-3 space-y-1 text-sm text-slate-600">
+        {% if product.stock_store > 0 %}
+        <p>&gt; {{ product.stock_store }} шт. в магазинах завтра</p>
+        {% endif %}
+        {% if product.stock_warehouse > 0 %}
+        <p>&gt; {{ product.stock_warehouse }} шт. есть на складе</p>
+        {% endif %}
+        {% if product.stock_store == 0 and product.stock_warehouse == 0 %}
+        <p class="text-slate-500">Нет в наличии</p>
+        {% endif %}
+      </div>
+      <div class="vi-product-card__cart">
+        {% include "shop/includes/cart_add_form.html" with product=product next=request.get_full_path compact=True %}
+      </div>
     </div>
   </div>
 </article>

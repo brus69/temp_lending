@@ -35,4 +35,10 @@ urlpatterns = [
     path("auth/register/", views.auth_register, name="auth_register"),
     path("auth/confirm/<path:token>/", views.auth_confirm_email, name="auth_confirm_email"),
     path("auth/logout/", views.auth_logout, name="auth_logout"),
+    path("articles/", views.article_list, name="article_list"),
+    path("articles/<slug:slug>/", views.article_detail, name="article_detail"),
+    path("news/", views.news_list, name="news_list"),
+    path("news/<slug:slug>/", views.news_detail, name="news_detail"),
+    path("promotions/", views.promotion_list, name="promotion_list"),
+    path("promotions/<slug:slug>/", views.promotion_detail, name="promotion_detail"),
 ]

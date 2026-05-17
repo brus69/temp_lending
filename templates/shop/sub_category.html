@@ -184,10 +184,16 @@
   <section>
     <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
       <h1 class="text-3xl font-bold">{{ current_category.name }}</h1>
-      {% include "shop/includes/product_listing_toolbar.html" %}
+      {% include "shop/includes/product_listing_toolbar.html" with current_sort=current_sort filter_form_id="subcategory-filters-form" %}
     </div>
 
-    <div class="vi-product-listing grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-product-listing>
+    <div
+      class="vi-product-listing grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      data-product-listing
+      data-default-listing-view="{{ current_category.default_listing_view }}"
+      data-category-slug="{{ current_category.slug }}"
+      data-view="{{ current_category.default_listing_view }}"
+    >
       {% for product in page_obj %}
       {% include "shop/includes/product_listing_card.html" with product=product listing_price_class="mt-2 text-3xl font-bold text-slate-900" %}
       {% empty %}

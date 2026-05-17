@@ -1,0 +1,43 @@
+{% extends "shop/base.html" %}
+
+{% block title %}{{ page_title }} — {{ store_name }}{% endblock %}
+
+{% block content %}
+<main class="vi-container mx-auto w-full max-w-[1240px] px-4 py-8">
+  <nav class="text-sm text-slate-500">
+    <a href="{% url 'index' %}" class="hover:text-slate-800">Главная</a>
+    <span class="mx-1">/</span>
+    <span class="text-slate-700">{{ breadcrumb_label }}</span>
+  </nav>
+
+  <h1 class="mt-4 text-3xl font-bold leading-tight text-slate-900 md:text-[2.5rem] md:leading-tight">
+    {{ page_heading }}
+  </h1>
+
+  <div class="vi-content-card-grid mt-8">
+    {% for item in items %}
+    <a
+      href="{% url detail_url_name item.slug %}"
+      class="vi-content-card group block no-underline"
+    >
+      <div class="vi-content-card__image-wrap">
+        <img
+          src="{{ item.card_image_url }}"
+          alt="{{ item.title }}"
+          class="vi-content-card__image"
+          loading="lazy"
+        >
+      </div>
+      {% if item.display_start_date %}
+      <p class="vi-content-card__dates">
+        {{ item.display_start_date|date:"j E Y" }}{% if item.display_end_date and item.display_end_date != item.display_start_date %} — {{ item.display_end_date|date:"j E Y" }}{% endif %}
+      </p>
+      {% endif %}
+      <h2 class="vi-content-card__title">{{ item.title }}</h2>
+    </a>
+    {% empty %}
+    <p class="col-span-full text-slate-500">Публикаций пока нет.</p>
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}
