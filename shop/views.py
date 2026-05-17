@@ -1152,6 +1152,12 @@ def category(request):
     return render(request, "shop/category.html", {"categories": categories})
 
 
+def _has_active_subcategory_filters(request_get) -> bool:
+    if request_get.get("price_min", "").strip() or request_get.get("price_max", "").strip():
+        return True
+    return any(key.startswith("spec_") for key in request_get)
+
+
 def sub_category_filter_count(request, slug):
     """JSON: количество товаров по текущим параметрам фильтра (для живого обновления кнопки)."""
     _seed_demo_data()
@@ -1173,6 +1179,7 @@ def sub_category(request, slug=None):
         products_qs = Product.objects.none()
     page_obj = Paginator(products_qs, PRODUCTS_PER_PAGE).get_page(request.GET.get("page"))
     filtered_products_count = page_obj.paginator.count
+    has_active_filters = _has_active_subcategory_filters(request.GET)
     return render(
         request,
         "shop/sub_category.html",
@@ -1183,6 +1190,7 @@ def sub_category(request, slug=None):
             "price_filter": price_filter,
             "filtered_products_count": filtered_products_count,
             "filter_submit_label": _products_show_label(filtered_products_count),
+            "has_active_filters": has_active_filters,
             "page_obj": page_obj,
             "pagination_prefix": _pagination_query_prefix(request),
             "pagination_items": _pagination_nav_items(page_obj),

@@ -51,15 +51,24 @@ class SubCategoryFiltersTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Фильтры")
         self.assertContains(response, "Скобяные изделия и фурнитура")
+        self.assertContains(response, "Подобрано товаров:")
+        self.assertContains(response, "data-filter-popover")
+        self.assertContains(response, "data-filter-popover-submit")
         self.assertRegex(response.content.decode(), r"Показать \d+ товар")
+        self.assertContains(response, "Сбросить")
+        self.assertContains(response, "data-filter-submit-btn")
 
     def test_filter_count_api_returns_label(self):
         _seed_demo_data()
+        from shop.models import Category
+
+        category = Category.objects.get(slug="auto-krepezh")
+        total = category.products.count()
         response = self.client.get("/sub-category/auto-krepezh/filter-count/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["count"], 20)
-        self.assertEqual(data["label"], "Показать 20 товаров")
+        self.assertEqual(data["count"], total)
+        self.assertEqual(data["label"], f"Показать {total} товаров")
 
         din_attr_id = next(
             f["attribute"].id
@@ -74,10 +83,67 @@ class SubCategoryFiltersTests(TestCase):
         self.assertLess(filtered.json()["count"], 20)
         self.assertIn("Показать", filtered.json()["label"])
 
-    def test_filter_submit_button_shows_filtered_count(self):
+    def test_price_filter_limits_products_until_removed(self):
+        _seed_demo_data()
+        from django.db.models import Max, Min
+
+        from shop.models import Category
+
+        category = Category.objects.get(slug="auto-krepezh")
+        total = category.products.count()
+        bounds = category.products.aggregate(
+            min_price=Min("price"),
+            max_price=Max("price"),
+        )
+        narrow_max = bounds["min_price"] + (bounds["max_price"] - bounds["min_price"]) / 4
+        filtered = self.client.get(
+            "/sub-category/auto-krepezh/",
+            {
+                "price_min": str(int(bounds["min_price"])),
+                "price_max": str(int(narrow_max)),
+            },
+        )
+        self.assertLess(filtered.context["filtered_products_count"], total)
+
+        restored = self.client.get("/sub-category/auto-krepezh/")
+        self.assertEqual(restored.context["filtered_products_count"], total)
+
+    def test_price_reset_link_visible_when_price_filter_applied(self):
+        _seed_demo_data()
+        response = self.client.get(
+            "/sub-category/auto-krepezh/",
+            {"price_min": "100", "price_max": "500"},
+        )
+        self.assertContains(response, "data-filter-price-reset")
+        self.assertContains(response, "×</span> Сбросить")
+
+        clean = self.client.get("/sub-category/auto-krepezh/")
+        self.assertContains(clean, "data-filter-price-reset")
+        self.assertRegex(
+            clean.content.decode(),
+            r'data-filter-price-reset[^>]*\bhidden\b',
+        )
+
+    def test_reset_all_link_visible_when_filters_applied(self):
+        _seed_demo_data()
+        din_attr_id = next(
+            f["attribute"].id
+            for f in self.client.get("/sub-category/auto-krepezh/").context["spec_filters"]
+            if f["attribute"].name == "Диаметр резьбы"
+        )
+        response = self.client.get(
+            "/sub-category/auto-krepezh/",
+            {f"spec_{din_attr_id}": "M14"},
+        )
+        self.assertContains(response, "Сбросить все фильтры")
+        self.assertContains(response, "data-filter-reset-all")
+
+    def test_filter_popover_shows_product_count(self):
         _seed_demo_data()
         response = self.client.get("/sub-category/auto-krepezh/")
-        self.assertContains(response, "Показать 20 товаров")
+        self.assertContains(response, "Подобрано товаров:")
+        self.assertContains(response, "data-filter-popover-count")
+        self.assertContains(response, ">20</span>")
 
         din_attr_id = next(
             f["attribute"].id
@@ -89,7 +155,8 @@ class SubCategoryFiltersTests(TestCase):
             {f"spec_{din_attr_id}": "M14"},
         )
         count = filtered.context["filtered_products_count"]
-        self.assertIn(f"Показать {count}", filtered.content.decode())
+        self.assertContains(filtered, "data-filter-popover-count")
+        self.assertContains(filtered, f">{count}</span>")
 
     def test_auto_krepezh_has_twenty_products_and_thread_diameters(self):
         _seed_demo_data()

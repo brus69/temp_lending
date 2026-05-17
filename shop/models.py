@@ -170,6 +170,8 @@ class Product(models.Model):
     stock_store = models.PositiveIntegerField("Остаток в магазинах", default=0)
     stock_warehouse = models.PositiveIntegerField("Остаток на складе", default=0)
     is_best_price = models.BooleanField("Лучшая цена", default=True)
+    is_closed_sale = models.BooleanField("Закрытая распродажа", default=False)
+    is_new = models.BooleanField("Новинка", default=False)
 
     class Meta:
         verbose_name = "Товар"

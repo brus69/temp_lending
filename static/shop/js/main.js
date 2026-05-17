@@ -681,22 +681,240 @@ function initSubCategoryFilters() {
   if (!form) return;
 
   const countUrl = form.dataset.countUrl;
+  let popover = form.querySelector("[data-filter-popover]");
+  const countNode = popover?.querySelector("[data-filter-popover-count]");
   const submitBtn = form.querySelector("[data-filter-submit-btn]");
-  if (!countUrl || !submitBtn) return;
+  const popoverSubmitBtn = popover?.querySelector("[data-filter-popover-submit]");
+  const resetAllLink = form.querySelector("[data-filter-reset-all]");
+  const priceResetBtn = form.querySelector("[data-filter-price-reset]");
+  if (!countUrl || !popover || !countNode) return;
+
+  const setSubmitLabels = (label) => {
+    if (typeof label !== "string") return;
+    if (submitBtn instanceof HTMLButtonElement) submitBtn.textContent = label;
+    if (popoverSubmitBtn instanceof HTMLButtonElement) popoverSubmitBtn.textContent = label;
+  };
+
+  if (!form.id) form.id = "subcategory-filters-form";
+  document.body.appendChild(popover);
+  if (popoverSubmitBtn instanceof HTMLButtonElement) {
+    popoverSubmitBtn.setAttribute("form", form.id);
+  }
 
   let debounceTimer = null;
   let activeController = null;
+  let anchorEl = null;
 
-  const updateCount = () => {
+  const hasActivePriceFilter = () => {
+    const priceMin = form.querySelector('[name="price_min"]');
+    const priceMax = form.querySelector('[name="price_max"]');
+    return (
+      (priceMin instanceof HTMLInputElement && priceMin.value.trim() !== "") ||
+      (priceMax instanceof HTMLInputElement && priceMax.value.trim() !== "")
+    );
+  };
+
+  const hasActiveFilters = () => {
+    const hasCheckbox = form.querySelector("[data-filter-checkbox]:checked");
+    return Boolean(hasCheckbox || hasActivePriceFilter());
+  };
+
+  const updatePriceResetVisibility = () => {
+    if (!(priceResetBtn instanceof HTMLElement)) return;
+    priceResetBtn.classList.toggle("hidden", !hasActivePriceFilter());
+  };
+
+  const shouldShowResetAll = () => hasActiveFilters() || Boolean(window.location.search);
+
+  const updateResetAllVisibility = () => {
+    if (!(resetAllLink instanceof HTMLElement)) return;
+    resetAllLink.classList.toggle("hidden", !shouldShowResetAll());
+  };
+
+  const clearFormFilters = () => {
+    form.querySelectorAll("[data-filter-checkbox]").forEach((checkbox) => {
+      if (checkbox instanceof HTMLInputElement) checkbox.checked = false;
+    });
+    form.querySelectorAll('[name="price_min"], [name="price_max"]').forEach((input) => {
+      if (input instanceof HTMLInputElement) input.value = "";
+    });
+    resetPriceRange?.();
+    updatePriceResetVisibility();
+    anchorEl = null;
+  };
+
+  const navigateWithoutPriceFilter = () => {
+    const action = form.getAttribute("action") || window.location.pathname;
+    const params = new URLSearchParams();
+    new FormData(form).forEach((value, key) => {
+      if (value === "" || key === "price_min" || key === "price_max" || key === "page") return;
+      params.append(key, value);
+    });
+    const query = params.toString();
+    window.location.href = query ? `${action}?${query}` : action;
+  };
+
+  const clearPriceFilter = () => {
+    form.querySelectorAll('[name="price_min"], [name="price_max"]').forEach((input) => {
+      if (input instanceof HTMLInputElement) input.value = "";
+    });
+    resetPriceRange?.();
+    navigateWithoutPriceFilter();
+  };
+
+  let resetPriceRange = null;
+  const priceRangeRoot = form.querySelector("[data-price-range]");
+  const priceMinInput = form.querySelector('[name="price_min"]');
+  const priceMaxInput = form.querySelector('[name="price_max"]');
+  if (
+    priceRangeRoot instanceof HTMLElement &&
+    priceMinInput instanceof HTMLInputElement &&
+    priceMaxInput instanceof HTMLInputElement
+  ) {
+    const rangeMin = priceRangeRoot.querySelector("[data-price-range-min]");
+    const rangeMax = priceRangeRoot.querySelector("[data-price-range-max]");
+    const rangeFill = priceRangeRoot.querySelector("[data-price-range-fill]");
+    const minBound = Number.parseInt(priceRangeRoot.dataset.min || "0", 10);
+    const maxBound = Number.parseInt(priceRangeRoot.dataset.max || "0", 10);
+
+    if (
+      rangeMin instanceof HTMLInputElement &&
+      rangeMax instanceof HTMLInputElement &&
+      rangeFill instanceof HTMLElement &&
+      Number.isFinite(minBound) &&
+      Number.isFinite(maxBound) &&
+      maxBound > minBound
+    ) {
+      const updateRangeFill = () => {
+        const minVal = Number.parseInt(rangeMin.value, 10);
+        const maxVal = Number.parseInt(rangeMax.value, 10);
+        const span = maxBound - minBound;
+        const left = ((minVal - minBound) / span) * 100;
+        const width = ((maxVal - minVal) / span) * 100;
+        rangeFill.style.left = `${left}%`;
+        rangeFill.style.width = `${width}%`;
+      };
+
+      const syncPriceInputsFromRange = () => {
+        const minVal = Number.parseInt(rangeMin.value, 10);
+        const maxVal = Number.parseInt(rangeMax.value, 10);
+        priceMinInput.value = minVal > minBound ? String(minVal) : "";
+        priceMaxInput.value = maxVal < maxBound ? String(maxVal) : "";
+        updateRangeFill();
+        updatePriceResetVisibility();
+      };
+
+      const syncRangeFromPriceInputs = () => {
+        const minRaw = priceMinInput.value.trim();
+        const maxRaw = priceMaxInput.value.trim();
+        const minVal = minRaw
+          ? Math.min(maxBound, Math.max(minBound, Number.parseInt(minRaw, 10) || minBound))
+          : minBound;
+        const maxVal = maxRaw
+          ? Math.min(maxBound, Math.max(minBound, Number.parseInt(maxRaw, 10) || maxBound))
+          : maxBound;
+        rangeMin.value = String(Math.min(minVal, maxVal));
+        rangeMax.value = String(Math.max(minVal, maxVal));
+        updateRangeFill();
+        updatePriceResetVisibility();
+      };
+
+      const onRangeInput = (event) => {
+        let minVal = Number.parseInt(rangeMin.value, 10);
+        let maxVal = Number.parseInt(rangeMax.value, 10);
+        if (minVal > maxVal) {
+          if (event.target === rangeMin) {
+            maxVal = minVal;
+            rangeMax.value = String(maxVal);
+          } else {
+            minVal = maxVal;
+            rangeMin.value = String(minVal);
+          }
+        }
+        syncPriceInputsFromRange();
+        anchorEl = form.querySelector("[data-filter-anchor]");
+        scheduleUpdate();
+      };
+
+      resetPriceRange = () => {
+        rangeMin.value = String(minBound);
+        rangeMax.value = String(maxBound);
+        updateRangeFill();
+      };
+
+      rangeMin.addEventListener("input", onRangeInput);
+      rangeMax.addEventListener("input", onRangeInput);
+      priceMinInput.addEventListener("change", syncRangeFromPriceInputs);
+      priceMaxInput.addEventListener("change", syncRangeFromPriceInputs);
+
+      syncRangeFromPriceInputs();
+    }
+  }
+
+  const resolveAnchor = () => {
+    if (anchorEl && anchorEl.isConnected) return anchorEl;
+    const checked = form.querySelector("[data-filter-checkbox]:checked");
+    if (checked instanceof HTMLInputElement) {
+      return checked.closest("[data-filter-option]");
+    }
+    const priceAnchor = form.querySelector("[data-filter-anchor]");
+    if (priceAnchor instanceof HTMLElement && hasActiveFilters()) return priceAnchor;
+    return null;
+  };
+
+  const positionPopover = () => {
+    const anchor = resolveAnchor();
+    if (!anchor) return;
+
+    const rect = anchor.getBoundingClientRect();
+    const popoverWidth = popover.offsetWidth || 200;
+    const gap = 14;
+    let left = rect.right + gap;
+    let top = rect.top + rect.height / 2;
+
+    if (left + popoverWidth > window.innerWidth - 8) {
+      left = rect.left - popoverWidth - gap;
+    }
+    top = Math.max(12, Math.min(top, window.innerHeight - 12));
+
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+    popover.style.transform = "translateY(-50%)";
+  };
+
+  const showPopover = () => {
+    if (!hasActiveFilters()) {
+      hidePopover();
+      return;
+    }
+    positionPopover();
+    popover.classList.remove("hidden");
+    popover.classList.add("is-visible");
+    popover.setAttribute("aria-hidden", "false");
+  };
+
+  const hidePopover = () => {
+    popover.classList.add("hidden");
+    popover.classList.remove("is-visible");
+    popover.setAttribute("aria-hidden", "true");
+  };
+
+  const buildParams = () => {
     const params = new URLSearchParams();
     new FormData(form).forEach((value, key) => {
       if (value !== "") params.append(key, value);
     });
+    return params;
+  };
 
+  const updateCount = () => {
     if (activeController) activeController.abort();
     activeController = new AbortController();
 
-    fetch(`${countUrl}?${params.toString()}`, {
+    const params = hasActiveFilters() ? buildParams() : new URLSearchParams();
+    const query = params.toString();
+
+    fetch(query ? `${countUrl}?${query}` : countUrl, {
       headers: { Accept: "application/json" },
       signal: activeController.signal,
     })
@@ -705,7 +923,12 @@ function initSubCategoryFilters() {
         return response.json();
       })
       .then((data) => {
-        if (typeof data.label === "string") submitBtn.textContent = data.label;
+        if (typeof data.count === "number") countNode.textContent = String(data.count);
+        setSubmitLabels(data.label);
+        updateResetAllVisibility();
+        updatePriceResetVisibility();
+        if (hasActiveFilters()) showPopover();
+        else hidePopover();
       })
       .catch((err) => {
         if (err.name === "AbortError") return;
@@ -717,10 +940,68 @@ function initSubCategoryFilters() {
     debounceTimer = window.setTimeout(updateCount, 200);
   };
 
-  form.addEventListener("change", scheduleUpdate);
-  form.querySelectorAll('input[type="number"]').forEach((input) => {
-    input.addEventListener("input", scheduleUpdate);
+  form.addEventListener("change", (event) => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement && target.matches("[data-filter-checkbox]")) {
+      anchorEl = target.checked ? target.closest("[data-filter-option]") : null;
+    }
+    if (target instanceof HTMLInputElement && target.type === "number") {
+      anchorEl = form.querySelector("[data-filter-anchor]");
+      updatePriceResetVisibility();
+    }
+    scheduleUpdate();
   });
+
+  form.querySelectorAll('input[type="number"]').forEach((input) => {
+    input.addEventListener("input", () => {
+      anchorEl = form.querySelector("[data-filter-anchor]");
+      updatePriceResetVisibility();
+      scheduleUpdate();
+    });
+  });
+
+  if (priceResetBtn instanceof HTMLButtonElement) {
+    priceResetBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      clearPriceFilter();
+    });
+  }
+
+  window.addEventListener("resize", () => {
+    if (popover.classList.contains("is-visible")) positionPopover();
+  });
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (popover.classList.contains("is-visible")) positionPopover();
+    },
+    true,
+  );
+
+  document.addEventListener("click", (event) => {
+    if (!popover.classList.contains("is-visible")) return;
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (popover.contains(target) || form.contains(target)) return;
+    hidePopover();
+  });
+
+  if (resetAllLink instanceof HTMLAnchorElement) {
+    resetAllLink.addEventListener("click", (event) => {
+      event.preventDefault();
+      const resetUrl = form.dataset.resetUrl || resetAllLink.href;
+      if (window.location.search) {
+        window.location.href = resetUrl;
+        return;
+      }
+      clearFormFilters();
+      updateCount();
+    });
+  }
+
+  updateResetAllVisibility();
+  updatePriceResetVisibility();
 }
 
 document.addEventListener("DOMContentLoaded", applyDynamicBits);

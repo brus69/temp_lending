@@ -3,9 +3,7 @@
   <div class="absolute right-2 top-2 z-10">
     {% include "shop/includes/favorite_button.html" with product=product next=request.get_full_path compact=True %}
   </div>
-  {% if product.is_best_price %}
-  <span class="inline-block rounded-md bg-sky-500 px-2 py-1 text-xs font-semibold text-white">Лучшая цена</span>
-  {% endif %}
+  {% include "shop/includes/product_badges.html" with product=product %}
   <a
     href="{% url 'product_detail' product.slug %}"
     class="mt-2 block outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"

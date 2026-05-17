@@ -53,12 +53,15 @@ class ProductAdminImportExportTests(TestCase):
 
     def test_admin_import_csv_creates_product(self):
         csv_payload = (
-            "category_slug;name;slug;sku;price;old_price;image_url;description;stock_store;stock_warehouse;is_best_price\n"
-            "metizy-admin;Болт M10;bolt-m10;SKU-A-777;210;310;https://example.com/new.png;Импорт;12;33;1\n"
+            "category_slug;name;slug;sku;price;old_price;image_url;description;stock_store;stock_warehouse;is_best_price;is_closed_sale;is_new\n"
+            "metizy-admin;Болт M10;bolt-m10;SKU-A-777;210;310;https://example.com/new.png;Импорт;12;33;1;0;1\n"
         )
         upload = SimpleUploadedFile("products.csv", csv_payload.encode("utf-8"), content_type="text/csv")
         created, updated, errors = self.admin._import_products_from_file(upload=upload, as_csv=True)
         self.assertEqual(created, 1)
         self.assertEqual(updated, 0)
         self.assertEqual(errors, [])
-        self.assertTrue(Product.objects.filter(sku="SKU-A-777", slug="bolt-m10").exists())
+        imported = Product.objects.get(sku="SKU-A-777", slug="bolt-m10")
+        self.assertTrue(imported.is_best_price)
+        self.assertFalse(imported.is_closed_sale)
+        self.assertTrue(imported.is_new)

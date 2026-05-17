@@ -136,6 +136,8 @@ PRODUCT_IMPORT_EXPORT_FIELDS = [
     "stock_store",
     "stock_warehouse",
     "is_best_price",
+    "is_closed_sale",
+    "is_new",
 ]
 
 
@@ -151,7 +153,7 @@ class ProductExportActionForm(ActionForm):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ("name", "sku", "category", "price", "old_price", "is_best_price")
-    list_filter = ("category", "is_best_price")
+    list_filter = ("category", "is_best_price", "is_closed_sale", "is_new")
     search_fields = ("name", "sku", "slug")
     inlines = [ProductSpecValueInline, ProductGalleryImageInline]
     readonly_fields = ("specs", "rating", "reviews_count", "image_preview")
@@ -185,7 +187,16 @@ class ProductAdmin(admin.ModelAdmin):
             },
         ),
         ("SEO", {"fields": ("meta_title", "meta_description"), "classes": ("collapse",)}),
-        ("Остатки и метки", {"fields": ("stock_store", "stock_warehouse", "is_best_price")}),
+        (
+            "Остатки и метки",
+            {
+                "fields": (
+                    "stock_store",
+                    "stock_warehouse",
+                    ("is_best_price", "is_closed_sale", "is_new"),
+                ),
+            },
+        ),
         ("Рейтинг (авто)", {"fields": ("rating", "reviews_count")}),
         ("Устаревший JSON", {"classes": ("collapse",), "fields": ("specs",)}),
     )
@@ -282,6 +293,8 @@ class ProductAdmin(admin.ModelAdmin):
                 product.stock_store,
                 product.stock_warehouse,
                 "1" if product.is_best_price else "0",
+                "1" if product.is_closed_sale else "0",
+                "1" if product.is_new else "0",
             ]
             spec_map = product_specs.get(product.id, {})
             spec_row = [spec_map.get(header, "") for header in spec_headers]
@@ -343,6 +356,8 @@ class ProductAdmin(admin.ModelAdmin):
                     "stock_store": self._parse_int(row["stock_store"], "stock_store"),
                     "stock_warehouse": self._parse_int(row["stock_warehouse"], "stock_warehouse"),
                     "is_best_price": self._parse_bool(row["is_best_price"]),
+                    "is_closed_sale": self._parse_bool(row["is_closed_sale"]),
+                    "is_new": self._parse_bool(row["is_new"]),
                 }
                 obj = Product.objects.filter(sku=sku).first()
                 created = obj is None
