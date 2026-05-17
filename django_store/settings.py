@@ -71,6 +71,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "shop.context_processors.cart_context",
                 "shop.context_processors.favorites_context",
+                "shop.context_processors.store_context",
             ],
         },
     },
@@ -127,6 +128,8 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+STORE_NAME = os.environ.get("DJANGO_STORE_NAME", "Все инструменты").strip() or "Все инструменты"
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "no-reply@lendingstore.local"

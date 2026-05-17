@@ -1,0 +1,22 @@
+{% extends "shop/base.html" %}
+
+{% block title %}Страница не найдена — LendingStore{% endblock %}
+
+{% block content %}
+<main class="vi-container mx-auto w-full px-4 py-10">
+  <section class="rounded-2xl bg-white p-8 text-center">
+    <p class="text-7xl font-bold leading-none text-red-600">404</p>
+    <h1 class="mt-4 text-3xl font-bold text-slate-800">Страница не найдена</h1>
+    <p class="mt-3 text-slate-600">
+      Возможно, ссылка устарела или страница была удалена.
+    </p>
+    {% if request.path %}
+    <p class="mt-2 text-sm text-slate-500">{{ request.path }}</p>
+    {% endif %}
+    <div class="mt-6 flex flex-wrap justify-center gap-3">
+      <a href="{% url 'index' %}" class="rounded-xl bg-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">На главную</a>
+      <a href="{% url 'category' %}" class="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white">В каталог</a>
+    </div>
+  </section>
+</main>
+{% endblock %}

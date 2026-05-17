@@ -10,7 +10,7 @@ from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
-from django.db.models import Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -626,6 +626,13 @@ _DEMO_PRODUCT_SEEDS: list[tuple[str, str, str, str, Decimal, Decimal | None, str
 ]
 
 
+def _sync_category_product_counts() -> None:
+    """Обновляет product_count по фактическому числу товаров в категории."""
+    for category in Category.objects.annotate(actual_count=Count("products")):
+        if category.product_count != category.actual_count:
+            Category.objects.filter(pk=category.pk).update(product_count=category.actual_count)
+
+
 def _ensure_demo_products() -> None:
     """Идемпотентно создаёт демо-товары по slug (включая расширенный каталог метизов)."""
     categories_by_slug = {c.slug: c for c in Category.objects.all()}
@@ -655,6 +662,7 @@ def _ensure_demo_products() -> None:
             sync_product_specs_from_json(obj)
         elif not obj.spec_values.exists() and (obj.specs or {}):
             sync_product_specs_from_json(obj)
+    _sync_category_product_counts()
 
 
 def _seed_reviews_questions_if_needed() -> None:
@@ -755,20 +763,20 @@ def _seed_reviews_questions_if_needed() -> None:
 def _seed_demo_data() -> None:
     if not Category.objects.exists():
         categories_data = [
-            ("Метизы", "metizy", 438150, "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=260&q=80"),
-            ("Скобяные изделия и фурнитура", "furnitura", 104522, "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=260&q=80"),
-            ("Специальный крепеж", "special-krepezh", 96788, "https://images.unsplash.com/photo-1599948128020-9a44505b3a80?auto=format&fit=crop&w=260&q=80"),
-            ("Такелаж", "takelazh", 64732, "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=260&q=80"),
-            ("Пластиковый крепеж", "plastic-krepezh", 28878, "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=260&q=80"),
-            ("Автомобильный крепеж", "auto-krepezh", 5246, "https://images.unsplash.com/photo-1611835151646-5a9df7f11463?auto=format&fit=crop&w=260&q=80"),
-            ("Монтажные ленты", "montazhnye-lenty", 17715, "https://images.unsplash.com/photo-1585298723682-7115561c51b7?auto=format&fit=crop&w=260&q=80"),
-            ("Химический", "chemical", 13699, "https://images.unsplash.com/photo-1620432468734-65f36cf65dfa?auto=format&fit=crop&w=260&q=80"),
+            ("Метизы", "metizy", "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=260&q=80"),
+            ("Скобяные изделия и фурнитура", "furnitura", "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=260&q=80"),
+            ("Специальный крепеж", "special-krepezh", "https://images.unsplash.com/photo-1599948128020-9a44505b3a80?auto=format&fit=crop&w=260&q=80"),
+            ("Такелаж", "takelazh", "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=260&q=80"),
+            ("Пластиковый крепеж", "plastic-krepezh", "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&w=260&q=80"),
+            ("Автомобильный крепеж", "auto-krepezh", "https://images.unsplash.com/photo-1611835151646-5a9df7f11463?auto=format&fit=crop&w=260&q=80"),
+            ("Монтажные ленты", "montazhnye-lenty", "https://images.unsplash.com/photo-1585298723682-7115561c51b7?auto=format&fit=crop&w=260&q=80"),
+            ("Химический", "chemical", "https://images.unsplash.com/photo-1620432468734-65f36cf65dfa?auto=format&fit=crop&w=260&q=80"),
         ]
-        for idx, (name, slug, count, image_url) in enumerate(categories_data, start=1):
+        for idx, (name, slug, image_url) in enumerate(categories_data, start=1):
             Category.objects.create(
                 name=name,
                 slug=slug,
-                product_count=count,
+                product_count=0,
                 image_url=image_url,
                 sort_order=idx,
             )
