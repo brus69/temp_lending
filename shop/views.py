@@ -10,7 +10,7 @@ from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Max, Min, Prefetch, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -38,6 +38,110 @@ from .models import (
 EMAIL_CONFIRM_MAX_AGE_SECONDS = 60 * 60 * 24
 
 PRODUCTS_PER_PAGE = 12
+
+
+def _pagination_query_prefix(request, *, exclude: frozenset[str] = frozenset({"page"})) -> str:
+    """Строка query-параметров для пагинации (без page)."""
+    pairs: list[tuple[str, str]] = []
+    for key in request.GET:
+        if key in exclude:
+            continue
+        for value in request.GET.getlist(key):
+            if value != "":
+                pairs.append((key, value))
+    if not pairs:
+        return ""
+    return urlencode(pairs) + "&"
+
+
+def _parse_price_param(raw: str | None) -> Decimal | None:
+    if not raw or not str(raw).strip():
+        return None
+    try:
+        value = Decimal(str(raw).strip().replace(",", ".").replace(" ", ""))
+    except Exception:
+        return None
+    if value < 0:
+        return None
+    return value
+
+
+def _build_subcategory_filters(category: Category, request_get) -> tuple[list[dict], dict]:
+    """Фильтры сайдбара для выбранной категории: цена и характеристики из БД."""
+    base_qs = Product.objects.filter(category=category)
+    bounds = base_qs.aggregate(min_price=Min("price"), max_price=Max("price"))
+
+    price_filter = {
+        "min_bound": bounds["min_price"],
+        "max_bound": bounds["max_price"],
+        "min_value": request_get.get("price_min", ""),
+        "max_value": request_get.get("price_max", ""),
+    }
+
+    spec_filters: list[dict] = []
+    attributes = category.spec_attributes.order_by("sort_order", "id")
+    for attribute in attributes:
+        value_rows = (
+            ProductSpecValue.objects.filter(product__category=category, attribute=attribute)
+            .values("value")
+            .annotate(count=Count("id"))
+            .order_by("value")
+        )
+        if not value_rows:
+            continue
+        selected = request_get.getlist(f"spec_{attribute.id}")
+        spec_filters.append(
+            {
+                "attribute": attribute,
+                "param": f"spec_{attribute.id}",
+                "values": [
+                    {
+                        "value": row["value"],
+                        "count": row["count"],
+                        "selected": row["value"] in selected,
+                    }
+                    for row in value_rows
+                ],
+            }
+        )
+
+    return spec_filters, price_filter
+
+
+def _apply_subcategory_filters(category: Category, request_get):
+    """Возвращает queryset товаров с учётом GET-фильтров."""
+    qs = Product.objects.filter(category=category).select_related("category")
+
+    price_min = _parse_price_param(request_get.get("price_min"))
+    price_max = _parse_price_param(request_get.get("price_max"))
+    if price_min is not None:
+        qs = qs.filter(price__gte=price_min)
+    if price_max is not None:
+        qs = qs.filter(price__lte=price_max)
+
+    for attribute in category.spec_attributes.order_by("sort_order", "id"):
+        selected = request_get.getlist(f"spec_{attribute.id}")
+        if selected:
+            qs = qs.filter(
+                spec_values__attribute=attribute,
+                spec_values__value__in=selected,
+            ).distinct()
+
+    return qs.order_by("name")
+
+
+def _products_show_label(count: int) -> str:
+    """Подпись кнопки фильтра: «Показать N товар(ов)»."""
+    n = max(0, int(count))
+    if n % 100 in (11, 12, 13, 14):
+        suffix = "товаров"
+    elif n % 10 == 1:
+        suffix = "товар"
+    elif n % 10 in (2, 3, 4):
+        suffix = "товара"
+    else:
+        suffix = "товаров"
+    return f"Показать {n} {suffix}"
 
 
 def _pagination_nav_items(page_obj, *, on_each_side: int = 1, on_ends: int = 2) -> list[dict]:
@@ -94,8 +198,78 @@ def _send_confirmation_email(request, user: User) -> None:
     )
 
 
+_AUTO_KREPEZH_IMAGE = (
+    "https://images.unsplash.com/photo-1611835151646-5a9df7f11463?auto=format&fit=crop&w=900&q=80"
+)
+
+
+def _auto_krepezh_spec(
+    diameter: str,
+    *,
+    pitch: str = "1.5",
+    din: str = "967",
+    material: str = "сталь 8.8",
+    coating: str = "цинк",
+    pack: str = "20 шт",
+    key_size: str | None = None,
+) -> dict:
+    specs = {
+        "Диаметр резьбы": diameter,
+        "Шаг резьбы": pitch,
+        "Направление резьбы": "правая",
+        "Материал": material,
+        "Покрытие": coating,
+        "Фасовка": pack,
+        "DIN": din,
+    }
+    if key_size:
+        specs["Размер под ключ"] = key_size
+    return specs
+
+
+_AUTO_KREPEZH_SPECS: dict[str, dict] = {
+    "klipsa-auto-uni-50": {
+        "Диаметр резьбы": "M6",
+        "Тип крепежа": "клипса",
+        "Материал": "нейлон",
+        "Покрытие": "—",
+        "Фасовка": "50 шт",
+        "Применение": "обшивка салона",
+    },
+    "vint-press-m5x16-50": _auto_krepezh_spec("M5", pitch="0.8", din="967", pack="50 шт", key_size="8 мм"),
+    "auto-bolt-m6x16": _auto_krepezh_spec("M6", pitch="1.0", key_size="10 мм"),
+    "auto-screw-trim-m8x18": _auto_krepezh_spec("M8", pitch="1.25", din="7985", pack="30 шт", key_size="13 мм"),
+    "auto-bolt-m10x25": _auto_krepezh_spec("M10", pitch="1.25", key_size="17 мм"),
+    "auto-bolt-m10x30-flan": _auto_krepezh_spec(
+        "M10", pitch="1.25", din="6921", pack="10 шт", key_size="17 мм", coating="чёрный оксид"
+    ),
+    "auto-nut-m11x125": _auto_krepezh_spec("M11", pitch="1.25", din="934", pack="25 шт", key_size="17 мм"),
+    "auto-nut-m12x125-wheel": _auto_krepezh_spec(
+        "M12", pitch="1.25", din="7434", pack="4 шт", key_size="19 мм", material="сталь 10.9"
+    ),
+    "auto-stud-m12x15": _auto_krepezh_spec("M12", pitch="1.25", din="975", pack="2 шт", key_size="19 мм"),
+    "auto-bolt-m13x35": _auto_krepezh_spec("M13", pitch="1.5", din="931", pack="15 шт", key_size="20 мм"),
+    "auto-bolt-m14x40": _auto_krepezh_spec("M14", pitch="1.5", key_size="21 мм"),
+    "auto-screw-m14x35-caliper": _auto_krepezh_spec(
+        "M14", pitch="1.5", din="960", pack="8 шт", key_size="21 мм", coating="фосфат"
+    ),
+    "auto-nut-m14-flan": _auto_krepezh_spec("M14", pitch="1.5", din="6923", pack="12 шт", key_size="21 мм"),
+    "auto-bolt-m16x45": _auto_krepezh_spec("M16", pitch="1.5", key_size="24 мм"),
+    "auto-nut-m16-selflock": _auto_krepezh_spec(
+        "M16", pitch="1.5", din="986", pack="10 шт", key_size="24 мм", coating="цинк жёлтый"
+    ),
+    "auto-stud-m18x15": _auto_krepezh_spec("M18", pitch="1.5", din="975", pack="2 шт", key_size="27 мм"),
+    "auto-bolt-m20x50": _auto_krepezh_spec("M20", pitch="1.5", key_size="30 мм", material="сталь 10.9"),
+    "auto-nut-m22x15": _auto_krepezh_spec("M22", pitch="1.5", din="934", pack="6 шт", key_size="32 мм"),
+    "auto-bolt-m8x22": _auto_krepezh_spec("M8", pitch="1.25", pack="40 шт", key_size="13 мм"),
+    "auto-washer-bolt-m10x28": _auto_krepezh_spec("M10", pitch="1.25", din="966", pack="15 шт", key_size="17 мм"),
+}
+
+
 def _demo_specs_dict_for_slug(slug: str) -> dict:
-    """Демо-характеристики для товаров категории «Метизы» до синка в реляционную схему."""
+    """Демо-характеристики для товаров до синка в реляционную схему."""
+    if slug in _AUTO_KREPEZH_SPECS:
+        return _AUTO_KREPEZH_SPECS[slug]
     base = {
         "Шаг резьбы": "1.5",
         "Направление резьбы": "правая",
@@ -585,7 +759,7 @@ _DEMO_PRODUCT_SEEDS: list[tuple[str, str, str, str, Decimal, Decimal | None, str
         "SKU-DEMO-02026",
         Decimal("356.00"),
         Decimal("459.00"),
-        "https://images.unsplash.com/photo-1611835151646-5a9df7f11463?auto=format&fit=crop&w=900&q=80",
+        _AUTO_KREPEZH_IMAGE,
     ),
     (
         "auto-krepezh",
@@ -594,7 +768,169 @@ _DEMO_PRODUCT_SEEDS: list[tuple[str, str, str, str, Decimal, Decimal | None, str
         "SKU-DEMO-02027",
         Decimal("289.00"),
         Decimal("379.00"),
-        "https://images.unsplash.com/photo-1489827904767-dfc78f294fa7?auto=format&fit=crop&w=900&q=80",
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Болт кузовной M6×16 DIN967, 20 шт",
+        "auto-bolt-m6x16",
+        "SKU-AUTO-001",
+        Decimal("145.00"),
+        Decimal("189.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Винт обшивки M8×18, 30 шт",
+        "auto-screw-trim-m8x18",
+        "SKU-AUTO-002",
+        Decimal("178.00"),
+        Decimal("229.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Болт кузовной M10×25 DIN967, 20 шт",
+        "auto-bolt-m10x25",
+        "SKU-AUTO-003",
+        Decimal("212.00"),
+        Decimal("279.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Болт с фланцем M10×30, 10 шт",
+        "auto-bolt-m10x30-flan",
+        "SKU-AUTO-004",
+        Decimal("248.00"),
+        Decimal("319.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Гайка M11×1.25, 25 шт",
+        "auto-nut-m11x125",
+        "SKU-AUTO-005",
+        Decimal("265.00"),
+        Decimal("339.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Гайка колёсная M12×1.25, 4 шт",
+        "auto-nut-m12x125-wheel",
+        "SKU-AUTO-006",
+        Decimal("420.00"),
+        Decimal("549.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Шпилька колесная M12×1.25×50, 2 шт",
+        "auto-stud-m12x15",
+        "SKU-AUTO-007",
+        Decimal("385.00"),
+        Decimal("489.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Болт крепления M13×1.5×35, 15 шт",
+        "auto-bolt-m13x35",
+        "SKU-AUTO-008",
+        Decimal("298.00"),
+        Decimal("379.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Болт M14×1.5×40, 12 шт",
+        "auto-bolt-m14x40",
+        "SKU-AUTO-009",
+        Decimal("325.00"),
+        Decimal("419.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Винт суппорта M14×1.5×35, 8 шт",
+        "auto-screw-m14x35-caliper",
+        "SKU-AUTO-010",
+        Decimal("356.00"),
+        Decimal("449.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Гайка фланцевая M14×1.5, 12 шт",
+        "auto-nut-m14-flan",
+        "SKU-AUTO-011",
+        Decimal("312.00"),
+        Decimal("399.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Болт M16×1.5×45, 10 шт",
+        "auto-bolt-m16x45",
+        "SKU-AUTO-012",
+        Decimal("398.00"),
+        Decimal("509.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Гайка самоконтрящаяся M16×1.5, 10 шт",
+        "auto-nut-m16-selflock",
+        "SKU-AUTO-013",
+        Decimal("445.00"),
+        Decimal("569.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Шпилька M18×1.5×60, 2 шт",
+        "auto-stud-m18x15",
+        "SKU-AUTO-014",
+        Decimal("520.00"),
+        Decimal("649.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Болт M20×1.5×50, 8 шт",
+        "auto-bolt-m20x50",
+        "SKU-AUTO-015",
+        Decimal("585.00"),
+        Decimal("729.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Гайка M22×1.5, 6 шт",
+        "auto-nut-m22x15",
+        "SKU-AUTO-016",
+        Decimal("640.00"),
+        Decimal("799.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Болт M8×1.25×22, 40 шт",
+        "auto-bolt-m8x22",
+        "SKU-AUTO-017",
+        Decimal("165.00"),
+        Decimal("215.00"),
+        _AUTO_KREPEZH_IMAGE,
+    ),
+    (
+        "auto-krepezh",
+        "Болт с прессшайбой M10×28, 15 шт",
+        "auto-washer-bolt-m10x28",
+        "SKU-AUTO-018",
+        Decimal("235.00"),
+        Decimal("299.00"),
+        _AUTO_KREPEZH_IMAGE,
     ),
     (
         "montazhnye-lenty",
@@ -633,6 +969,22 @@ def _sync_category_product_counts() -> None:
             Category.objects.filter(pk=category.pk).update(product_count=category.actual_count)
 
 
+def _sync_product_specs_from_dict(product: Product, specs: dict) -> None:
+    """Приводит значения характеристик товара к заданному словарю (для демо-сидов)."""
+    if not specs:
+        return
+    current = {
+        sv.attribute.name: sv.value
+        for sv in product.spec_values.select_related("attribute")
+    }
+    if current == specs:
+        return
+    product.spec_values.all().delete()
+    product.specs = specs
+    product.save(update_fields=["specs"])
+    sync_product_specs_from_json(product)
+
+
 def _ensure_demo_products() -> None:
     """Идемпотентно создаёт демо-товары по slug (включая расширенный каталог метизов)."""
     categories_by_slug = {c.slug: c for c in Category.objects.all()}
@@ -662,6 +1014,8 @@ def _ensure_demo_products() -> None:
             sync_product_specs_from_json(obj)
         elif not obj.spec_values.exists() and (obj.specs or {}):
             sync_product_specs_from_json(obj)
+        elif cat_slug == "auto-krepezh" and slug in _AUTO_KREPEZH_SPECS:
+            _sync_product_specs_from_dict(obj, _AUTO_KREPEZH_SPECS[slug])
     _sync_category_product_counts()
 
 
@@ -798,24 +1152,39 @@ def category(request):
     return render(request, "shop/category.html", {"categories": categories})
 
 
+def sub_category_filter_count(request, slug):
+    """JSON: количество товаров по текущим параметрам фильтра (для живого обновления кнопки)."""
+    _seed_demo_data()
+    category = get_object_or_404(Category, slug=slug)
+    count = _apply_subcategory_filters(category, request.GET).count()
+    return JsonResponse({"count": count, "label": _products_show_label(count)})
+
+
 def sub_category(request, slug=None):
     _seed_demo_data()
     categories = Category.objects.filter(is_featured=True)
     current_category = Category.objects.filter(slug=slug).first() if slug else categories.first()
-    products_qs = (
-        Product.objects.filter(category=current_category).select_related("category").order_by("name")
-        if current_category
-        else Product.objects.none()
-    )
+    spec_filters: list[dict] = []
+    price_filter: dict = {}
+    if current_category:
+        spec_filters, price_filter = _build_subcategory_filters(current_category, request.GET)
+        products_qs = _apply_subcategory_filters(current_category, request.GET)
+    else:
+        products_qs = Product.objects.none()
     page_obj = Paginator(products_qs, PRODUCTS_PER_PAGE).get_page(request.GET.get("page"))
+    filtered_products_count = page_obj.paginator.count
     return render(
         request,
         "shop/sub_category.html",
         {
             "categories": categories,
             "current_category": current_category,
+            "spec_filters": spec_filters,
+            "price_filter": price_filter,
+            "filtered_products_count": filtered_products_count,
+            "filter_submit_label": _products_show_label(filtered_products_count),
             "page_obj": page_obj,
-            "pagination_prefix": "",
+            "pagination_prefix": _pagination_query_prefix(request),
             "pagination_items": _pagination_nav_items(page_obj),
         },
     )

@@ -13,7 +13,7 @@
   <nav class="mb-5 text-xs text-slate-500">
     <a href="{% url 'index' %}" class="hover:text-slate-700">Главная</a>
     <span class="mx-1">/</span>
-    <a href="{% url 'category' %}" class="hover:text-slate-700">Крепёж</a>
+    <a href="{% url 'category' %}" class="hover:text-slate-700">{{ store_name }}</a>
     {% if current_category %}
     <span class="mx-1">/</span>
     <span class="text-slate-700">{{ current_category.name }}</span>
@@ -28,29 +28,93 @@
       <li>
         <a
           href="{% url 'sub_category_by_slug' item.slug %}"
-          class="{% if current_category and item.id == current_category.id %}rounded-lg bg-slate-100 px-2 py-1 inline-block{% endif %}"
+          class="{% if current_category and item.id == current_category.id %}rounded-lg bg-slate-100 px-2 py-1 inline-block font-medium text-slate-900{% else %}hover:text-slate-900{% endif %}"
         >
           {{ item.name }}
         </a>
       </li>
       {% endfor %}
     </ul>
-    <h3 class="mt-6 text-xl font-semibold">Цена, ₽</h3>
-    <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
-      <input class="rounded-lg border border-slate-300 px-3 py-2" value="от 1">
-      <input class="rounded-lg border border-slate-300 px-3 py-2" value="до 1 405 509">
-    </div>
-    <h3 class="mt-6 text-xl font-semibold">Производители</h3>
-    <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
-      <label class="flex gap-2"><input type="checkbox">23 БОЛТА</label>
-      <label class="flex gap-2"><input type="checkbox">ARNO</label>
-      <label class="flex gap-2"><input type="checkbox">DINFIX</label>
-      <label class="flex gap-2"><input type="checkbox">STARFIX</label>
-    </div>
+
+    {% if current_category %}
+    <form
+      method="get"
+      action="{% url 'sub_category_by_slug' current_category.slug %}"
+      class="mt-6 space-y-6 border-t border-slate-200 pt-6"
+      data-subcategory-filters
+      data-count-url="{% url 'sub_category_filter_count' current_category.slug %}"
+    >
+      <h3 class="text-xl font-semibold text-slate-800">Фильтры</h3>
+
+      {% if price_filter.min_bound is not None and price_filter.max_bound is not None %}
+      <div>
+        <h4 class="text-sm font-semibold text-slate-800">Цена, ₽</h4>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+          <input
+            type="number"
+            name="price_min"
+            min="0"
+            step="1"
+            placeholder="от {{ price_filter.min_bound|floatformat:0 }}"
+            value="{{ price_filter.min_value }}"
+            class="rounded-lg border border-slate-300 px-3 py-2"
+          >
+          <input
+            type="number"
+            name="price_max"
+            min="0"
+            step="1"
+            placeholder="до {{ price_filter.max_bound|floatformat:0 }}"
+            value="{{ price_filter.max_value }}"
+            class="rounded-lg border border-slate-300 px-3 py-2"
+          >
+        </div>
+      </div>
+      {% endif %}
+
+      {% for spec_filter in spec_filters %}
+      <div>
+        <h4 class="text-sm font-semibold text-slate-800">{{ spec_filter.attribute.name }}</h4>
+        <div class="mt-3 max-h-48 space-y-2 overflow-y-auto text-sm">
+          {% for option in spec_filter.values %}
+          <label class="flex cursor-pointer gap-2 leading-snug">
+            <input
+              type="checkbox"
+              name="{{ spec_filter.param }}"
+              value="{{ option.value }}"
+              class="mt-0.5 shrink-0"
+              {% if option.selected %}checked{% endif %}
+            >
+            <span>{{ option.value }} <span class="text-slate-400">({{ option.count }})</span></span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% empty %}
+      <p class="text-sm text-slate-500">Для этой категории пока нет характеристик для фильтрации.</p>
+      {% endfor %}
+
+      <div class="flex flex-col gap-2">
+        <button
+          type="submit"
+          data-filter-submit-btn
+          class="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
+        >
+          {{ filter_submit_label }}
+        </button>
+        <a
+          href="{% url 'sub_category_by_slug' current_category.slug %}"
+          class="rounded-xl bg-slate-100 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-200"
+        >
+          Сбросить
+        </a>
+      </div>
+    </form>
+    {% endif %}
   </aside>
 
   <section>
-    <div class="mb-4 flex items-center justify-between">
+    <div class="mb-4 flex items-center justify-between gap-4">
       <h1 class="text-3xl font-bold">{{ current_category.name }}</h1>
       <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
         <option>По популярности</option>
@@ -63,7 +127,7 @@
       {% for product in page_obj %}
       {% include "shop/includes/product_listing_card.html" with product=product listing_price_class="mt-2 text-3xl font-bold text-slate-900" %}
       {% empty %}
-      <p class="text-sm text-slate-500">Товары в категории скоро появятся.</p>
+      <p class="col-span-full text-sm text-slate-500">По выбранным фильтрам товаров не найдено.</p>
       {% endfor %}
     </div>
     {% include "shop/includes/pagination.html" with page_obj=page_obj pagination_prefix=pagination_prefix %}

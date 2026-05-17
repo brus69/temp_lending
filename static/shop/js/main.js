@@ -676,8 +676,56 @@ function initProductGallery() {
   });
 }
 
+function initSubCategoryFilters() {
+  const form = document.querySelector("[data-subcategory-filters]");
+  if (!form) return;
+
+  const countUrl = form.dataset.countUrl;
+  const submitBtn = form.querySelector("[data-filter-submit-btn]");
+  if (!countUrl || !submitBtn) return;
+
+  let debounceTimer = null;
+  let activeController = null;
+
+  const updateCount = () => {
+    const params = new URLSearchParams();
+    new FormData(form).forEach((value, key) => {
+      if (value !== "") params.append(key, value);
+    });
+
+    if (activeController) activeController.abort();
+    activeController = new AbortController();
+
+    fetch(`${countUrl}?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+      signal: activeController.signal,
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("count failed");
+        return response.json();
+      })
+      .then((data) => {
+        if (typeof data.label === "string") submitBtn.textContent = data.label;
+      })
+      .catch((err) => {
+        if (err.name === "AbortError") return;
+      });
+  };
+
+  const scheduleUpdate = () => {
+    window.clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(updateCount, 200);
+  };
+
+  form.addEventListener("change", scheduleUpdate);
+  form.querySelectorAll('input[type="number"]').forEach((input) => {
+    input.addEventListener("input", scheduleUpdate);
+  });
+}
+
 document.addEventListener("DOMContentLoaded", applyDynamicBits);
 document.addEventListener("DOMContentLoaded", initCatalogMenu);
+document.addEventListener("DOMContentLoaded", initSubCategoryFilters);
 document.addEventListener("DOMContentLoaded", initCartQtyForms);
 document.addEventListener("DOMContentLoaded", initQuickOrder);
 document.addEventListener("DOMContentLoaded", initAuthModal);
