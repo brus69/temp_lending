@@ -182,16 +182,12 @@
   </aside>
 
   <section>
-    <div class="mb-4 flex items-center justify-between gap-4">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
       <h1 class="text-3xl font-bold">{{ current_category.name }}</h1>
-      <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-        <option>По популярности</option>
-        <option>Сначала дешевле</option>
-        <option>Сначала дороже</option>
-      </select>
+      {% include "shop/includes/product_listing_toolbar.html" %}
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="vi-product-listing grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-product-listing>
       {% for product in page_obj %}
       {% include "shop/includes/product_listing_card.html" with product=product listing_price_class="mt-2 text-3xl font-bold text-slate-900" %}
       {% empty %}

@@ -2,12 +2,15 @@ import csv
 from io import BytesIO
 
 from django.contrib.admin.sites import AdminSite
+from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase
+from django.urls import reverse
 from openpyxl import load_workbook
 
 from shop.admin import ProductAdmin
 from shop.models import Product
+from shop.models import ProductLabel
 from shop.tests.factories import (
     make_category,
     make_product,
@@ -31,6 +34,16 @@ class ProductAdminImportExportTests(TestCase):
         attr = make_spec_attribute(category=self.category, name="DIN", sort_order=1)
         make_product_spec_value(product=self.product, attribute=attr, value="934")
 
+    def test_admin_change_form_has_preview_button(self):
+        user = get_user_model().objects.create_superuser("admin", "admin@test.local", "pass")
+        self.client.force_login(user)
+        url = reverse("admin:shop_product_change", args=[self.product.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Просмотр")
+        self.assertContains(response, f'/product/{self.product.slug}/"')
+        self.assertContains(response, 'target="_blank"')
+
     def test_admin_export_csv_contains_spec_columns(self):
         request = self.factory.post("/admin/shop/product/", {"use_csv": "on"})
         response = self.admin.export_products(request, Product.objects.all())
@@ -53,15 +66,14 @@ class ProductAdminImportExportTests(TestCase):
 
     def test_admin_import_csv_creates_product(self):
         csv_payload = (
-            "category_slug;name;slug;sku;price;old_price;image_url;description;stock_store;stock_warehouse;is_best_price;is_closed_sale;is_new\n"
-            "metizy-admin;Болт M10;bolt-m10;SKU-A-777;210;310;https://example.com/new.png;Импорт;12;33;1;0;1\n"
+            "category_slug;name;slug;sku;price;old_price;image_url;description;stock_store;stock_warehouse;labels\n"
+            "metizy-admin;Болт M10;bolt-m10;SKU-A-777;210;310;https://example.com/new.png;Импорт;12;33;new\n"
         )
+        ProductLabel.objects.get(slug="new")
         upload = SimpleUploadedFile("products.csv", csv_payload.encode("utf-8"), content_type="text/csv")
         created, updated, errors = self.admin._import_products_from_file(upload=upload, as_csv=True)
         self.assertEqual(created, 1)
         self.assertEqual(updated, 0)
         self.assertEqual(errors, [])
         imported = Product.objects.get(sku="SKU-A-777", slug="bolt-m10")
-        self.assertTrue(imported.is_best_price)
-        self.assertFalse(imported.is_closed_sale)
-        self.assertTrue(imported.is_new)
+        self.assertEqual(list(imported.labels.values_list("slug", flat=True)), ["new"])

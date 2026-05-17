@@ -5,7 +5,7 @@ from itertools import count
 
 from django.contrib.auth import get_user_model
 
-from shop.models import Category, CategorySpecAttribute, Product, ProductSpecValue
+from shop.models import Category, CategorySpecAttribute, Product, ProductLabel, ProductSpecValue
 
 
 User = get_user_model()
@@ -75,3 +75,15 @@ def make_spec_attribute(*, category: Category, **overrides):
 
 def make_product_spec_value(*, product: Product, attribute: CategorySpecAttribute, value: str = "test"):
     return ProductSpecValue.objects.create(product=product, attribute=attribute, value=value)
+
+
+def make_product_label(**overrides):
+    idx = _next_idx()
+    defaults = {
+        "name": f"Метка {idx}",
+        "slug": f"label-{idx}",
+        "background_class": "bg-sky-500",
+        "sort_order": idx,
+    }
+    defaults.update(overrides)
+    return ProductLabel.objects.create(**defaults)

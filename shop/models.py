@@ -4,7 +4,8 @@ from pathlib import Path
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Prefetch
+from django.utils.text import slugify
 
 
 def product_image_upload_to(instance: "Product", filename: str) -> str:
@@ -122,6 +123,60 @@ class CategorySpecAttribute(models.Model):
         return f"{self.category.slug}: {self.name}"
 
 
+class ProductLabel(models.Model):
+    """Настраиваемая метка для карточки товара (создаётся в админке)."""
+
+    name = models.CharField("Название", max_length=64, unique=True)
+    slug = models.SlugField("Слаг", max_length=64, unique=True, blank=True)
+    background_class = models.CharField(
+        "Класс фона (Tailwind)",
+        max_length=96,
+        default="bg-sky-500",
+        help_text="Например: bg-sky-500, bg-violet-600",
+    )
+    text_class = models.CharField(
+        "Класс текста (Tailwind)",
+        max_length=96,
+        default="text-white",
+        blank=True,
+    )
+    sort_order = models.PositiveSmallIntegerField("Порядок", default=0)
+    detail_banner_text = models.CharField(
+        "Текст на странице товара",
+        max_length=255,
+        blank=True,
+        help_text="Необязательный информационный блок на карточке товара.",
+    )
+
+    class Meta:
+        verbose_name = "Метка товара"
+        verbose_name_plural = "Метки товаров"
+        ordering = ["sort_order", "name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = slugify(self.name, allow_unicode=True) or "label"
+            slug = base
+            counter = 1
+            while ProductLabel.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                counter += 1
+                slug = f"{base}-{counter}"
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+
+def product_labels_prefetch() -> Prefetch:
+    return Prefetch("labels", queryset=ProductLabel.objects.order_by("sort_order", "name"))
+
+
+class ProductQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(is_active=True)
+
+
 class Product(models.Model):
     category = models.ForeignKey(
         Category,
@@ -169,9 +224,24 @@ class Product(models.Model):
     reviews_count = models.PositiveIntegerField("Количество отзывов", default=0)
     stock_store = models.PositiveIntegerField("Остаток в магазинах", default=0)
     stock_warehouse = models.PositiveIntegerField("Остаток на складе", default=0)
-    is_best_price = models.BooleanField("Лучшая цена", default=True)
-    is_closed_sale = models.BooleanField("Закрытая распродажа", default=False)
-    is_new = models.BooleanField("Новинка", default=False)
+    labels = models.ManyToManyField(
+        ProductLabel,
+        verbose_name="Метки",
+        blank=True,
+        related_name="products",
+    )
+    is_active = models.BooleanField("Товар активен", default=True)
+    redirect_product = models.ForeignKey(
+        "self",
+        verbose_name="Редирект 301 на товар",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inactive_redirect_sources",
+        help_text="Обязательно, если товар неактивен: посетитель будет перенаправлен на выбранный товар.",
+    )
+
+    objects = ProductQuerySet.as_manager()
 
     class Meta:
         verbose_name = "Товар"
@@ -191,6 +261,20 @@ class Product(models.Model):
                     "image": "Укажите загруженное изображение или URL.",
                     "image_url": "Укажите URL или загрузите файл.",
                 },
+            )
+        if not self.is_active:
+            if not self.redirect_product_id:
+                raise ValidationError(
+                    {"redirect_product": "Для неактивного товара укажите товар для редиректа 301."},
+                )
+            if self.pk and self.redirect_product_id == self.pk:
+                raise ValidationError({"redirect_product": "Товар не может перенаправлять на самого себя."})
+            target = self.redirect_product
+            if target and not target.is_active:
+                raise ValidationError({"redirect_product": "Целевой товар должен быть активным."})
+        elif self.redirect_product_id:
+            raise ValidationError(
+                {"redirect_product": "Редирект задаётся только для неактивного товара."},
             )
 
     @property

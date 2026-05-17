@@ -20,6 +20,7 @@ from .models import (
     OrderItem,
     Organization,
     Product,
+    ProductLabel,
     ProductQuestion,
     ProductReview,
     ProductReviewPhoto,
@@ -135,9 +136,7 @@ PRODUCT_IMPORT_EXPORT_FIELDS = [
     "description",
     "stock_store",
     "stock_warehouse",
-    "is_best_price",
-    "is_closed_sale",
-    "is_new",
+    "labels",
 ]
 
 
@@ -150,16 +149,65 @@ class ProductExportActionForm(ActionForm):
     use_csv = forms.BooleanField(label="CSV (по умолчанию Excel)", required=False, initial=False)
 
 
+class ProductAdminForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        redirect_qs = Product.objects.filter(is_active=True).order_by("name")
+        if self.instance.pk:
+            redirect_qs = redirect_qs.exclude(pk=self.instance.pk)
+        self.fields["redirect_product"].queryset = redirect_qs
+        self.fields["redirect_product"].help_text = (
+            "Укажите активный товар — с неактивной карточки будет ответ 301."
+        )
+
+
+@admin.register(ProductLabel)
+class ProductLabelAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "background_class", "sort_order")
+    list_editable = ("sort_order",)
+    search_fields = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
+    ordering = ("sort_order", "name")
+    fieldsets = (
+        (None, {"fields": ("name", "slug", "sort_order")}),
+        (
+            "Оформление",
+            {
+                "fields": ("background_class", "text_class", "detail_banner_text"),
+                "description": "Классы Tailwind для бейджа на витрине. Текст на странице товара — необязательный блок под галереей.",
+            },
+        ),
+    )
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "sku", "category", "price", "old_price", "is_best_price")
-    list_filter = ("category", "is_best_price", "is_closed_sale", "is_new")
+    form = ProductAdminForm
+    list_display = ("name", "sku", "category", "price", "is_active", "labels_display")
+    list_filter = ("is_active", "category", "labels")
     search_fields = ("name", "sku", "slug")
+    autocomplete_fields = ("redirect_product",)
+    filter_horizontal = ("labels",)
     inlines = [ProductSpecValueInline, ProductGalleryImageInline]
-    readonly_fields = ("specs", "rating", "reviews_count", "image_preview")
+    readonly_fields = ("rating", "reviews_count", "image_preview")
     actions = ("export_products",)
     action_form = ProductExportActionForm
     change_list_template = "admin/shop/product/change_list.html"
+    change_form_template = "admin/shop/product/change_form.html"
+
+    class Media:
+        css = {"all": ("shop/admin/product_status.css",)}
+        js = ("shop/admin/product_status.js",)
+
+    @admin.display(description="Метки")
+    def labels_display(self, obj: Product) -> str:
+        if not obj.pk:
+            return "—"
+        return ", ".join(obj.labels.order_by("sort_order", "name").values_list("name", flat=True)) or "—"
 
     @admin.display(description="Предпросмотр изображения")
     def image_preview(self, obj: Product) -> str:
@@ -188,17 +236,23 @@ class ProductAdmin(admin.ModelAdmin):
         ),
         ("SEO", {"fields": ("meta_title", "meta_description"), "classes": ("collapse",)}),
         (
+            "Публикация",
+            {
+                "fields": ("is_active", "redirect_product"),
+                "description": "Снимите «Товар активен», чтобы скрыть товар с витрины и настроить редирект 301.",
+            },
+        ),
+        (
             "Остатки и метки",
             {
                 "fields": (
                     "stock_store",
                     "stock_warehouse",
-                    ("is_best_price", "is_closed_sale", "is_new"),
+                    "labels",
                 ),
             },
         ),
         ("Рейтинг (авто)", {"fields": ("rating", "reviews_count")}),
-        ("Устаревший JSON", {"classes": ("collapse",), "fields": ("specs",)}),
     )
 
     def save_model(self, request, obj, form, change):
@@ -258,6 +312,7 @@ class ProductAdmin(admin.ModelAdmin):
         products = list(
             queryset.select_related("category").prefetch_related(
                 "spec_values__attribute",
+                "labels",
             ),
         )
         spec_headers: list[str] = []
@@ -292,9 +347,9 @@ class ProductAdmin(admin.ModelAdmin):
                 product.description,
                 product.stock_store,
                 product.stock_warehouse,
-                "1" if product.is_best_price else "0",
-                "1" if product.is_closed_sale else "0",
-                "1" if product.is_new else "0",
+                ";".join(
+                    product.labels.order_by("sort_order", "name").values_list("slug", flat=True),
+                ),
             ]
             spec_map = product_specs.get(product.id, {})
             spec_row = [spec_map.get(header, "") for header in spec_headers]
@@ -337,6 +392,9 @@ class ProductAdmin(admin.ModelAdmin):
 
         for idx, raw_row in enumerate(rows, start=2):
             row = {key: (raw_row.get(key) or "").strip() for key in PRODUCT_IMPORT_EXPORT_FIELDS}
+            for legacy_key in ("is_best_price", "is_closed_sale", "is_new"):
+                if legacy_key in raw_row:
+                    row[legacy_key] = (raw_row.get(legacy_key) or "").strip()
             try:
                 sku = row["sku"]
                 if not sku:
@@ -355,10 +413,8 @@ class ProductAdmin(admin.ModelAdmin):
                     "description": row["description"],
                     "stock_store": self._parse_int(row["stock_store"], "stock_store"),
                     "stock_warehouse": self._parse_int(row["stock_warehouse"], "stock_warehouse"),
-                    "is_best_price": self._parse_bool(row["is_best_price"]),
-                    "is_closed_sale": self._parse_bool(row["is_closed_sale"]),
-                    "is_new": self._parse_bool(row["is_new"]),
                 }
+                label_slugs = self._parse_label_slugs(row)
                 obj = Product.objects.filter(sku=sku).first()
                 created = obj is None
                 if created:
@@ -368,6 +424,7 @@ class ProductAdmin(admin.ModelAdmin):
                         setattr(obj, field, value)
                 obj.full_clean()
                 obj.save()
+                obj.labels.set(self._labels_for_slugs(label_slugs))
                 if created:
                     imported_count += 1
                 else:
@@ -421,6 +478,33 @@ class ProductAdmin(admin.ModelAdmin):
     @staticmethod
     def _parse_bool(raw: str):
         return str(raw).strip().lower() in {"1", "true", "yes", "да", "on"}
+
+    def _parse_label_slugs(self, row: dict) -> list[str]:
+        raw = (row.get("labels") or "").strip()
+        if raw:
+            return [part.strip() for part in raw.replace(",", ";").split(";") if part.strip()]
+        legacy_map = (
+            ("is_best_price", "best-price"),
+            ("is_closed_sale", "closed-sale"),
+            ("is_new", "new"),
+        )
+        slugs: list[str] = []
+        for field, slug in legacy_map:
+            if field in row and self._parse_bool(row[field]):
+                slugs.append(slug)
+        return slugs
+
+    @staticmethod
+    def _labels_for_slugs(slugs: list[str]):
+        if not slugs:
+            return []
+        labels = list(ProductLabel.objects.filter(slug__in=slugs))
+        found = {label.slug for label in labels}
+        missing = [slug for slug in slugs if slug not in found]
+        if missing:
+            raise ValueError(f"Метки не найдены: {', '.join(missing)}")
+        order = {slug: idx for idx, slug in enumerate(slugs)}
+        return sorted(labels, key=lambda label: order.get(label.slug, 999))
 
 
 class OrderItemInline(admin.TabularInline):

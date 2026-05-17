@@ -1004,6 +1004,45 @@ function initSubCategoryFilters() {
   updatePriceResetVisibility();
 }
 
+const PRODUCT_LISTING_VIEW_KEY = "vi-product-listing-view";
+
+function initProductListingView() {
+  const listings = document.querySelectorAll("[data-product-listing]");
+  if (!listings.length) return;
+
+  const savedView = window.localStorage.getItem(PRODUCT_LISTING_VIEW_KEY);
+  const initialView = savedView === "list" ? "list" : "grid";
+
+  const applyView = (view) => {
+    const isList = view === "list";
+    listings.forEach((listing) => {
+      listing.dataset.view = isList ? "list" : "grid";
+    });
+    document.querySelectorAll("[data-listing-view-toggle]").forEach((toggle) => {
+      toggle.querySelectorAll("[data-listing-view]").forEach((button) => {
+        if (!(button instanceof HTMLButtonElement)) return;
+        const active = button.dataset.listingView === view;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+    });
+    window.localStorage.setItem(PRODUCT_LISTING_VIEW_KEY, view);
+  };
+
+  document.querySelectorAll("[data-listing-view-toggle]").forEach((toggle) => {
+    toggle.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest("[data-listing-view]");
+      if (!(button instanceof HTMLButtonElement)) return;
+      const view = button.dataset.listingView;
+      if (view === "grid" || view === "list") applyView(view);
+    });
+  });
+
+  applyView(initialView);
+}
+
 document.addEventListener("DOMContentLoaded", applyDynamicBits);
 document.addEventListener("DOMContentLoaded", initCatalogMenu);
 document.addEventListener("DOMContentLoaded", initSubCategoryFilters);
@@ -1013,3 +1052,4 @@ document.addEventListener("DOMContentLoaded", initAuthModal);
 document.addEventListener("DOMContentLoaded", initCityPicker);
 document.addEventListener("DOMContentLoaded", initReviewRatingStars);
 document.addEventListener("DOMContentLoaded", initProductGallery);
+document.addEventListener("DOMContentLoaded", initProductListingView);

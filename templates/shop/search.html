@@ -11,7 +11,13 @@
   <p class="text-sm text-slate-600">Введите запрос в строке поиска в шапке сайта.</p>
   {% endif %}
 
-  <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  {% if query %}
+  <div class="mb-4 flex flex-wrap items-center justify-end gap-4">
+    {% include "shop/includes/product_listing_toolbar.html" %}
+  </div>
+  {% endif %}
+
+  <section class="vi-product-listing grid gap-4 sm:grid-cols-2 xl:grid-cols-4" data-product-listing>
     {% for product in page_obj %}
       {% include "shop/includes/product_listing_card.html" with product=product %}
     {% empty %}

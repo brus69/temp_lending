@@ -1,0 +1,15 @@
+{% extends "admin/change_form.html" %}
+
+{% block object-tools-items %}
+  {% if original and original.slug %}
+  <li>
+    <a
+      href="{% url 'product_detail' original.slug %}"
+      class="viewsitelink"
+      target="_blank"
+      rel="noopener noreferrer"
+    >Просмотр</a>
+  </li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

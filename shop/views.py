@@ -11,7 +11,7 @@ from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from django.db.models import Count, Max, Min, Prefetch, Q
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -32,6 +32,7 @@ from .models import (
     ProductReviewPhoto,
     ProductSpecValue,
     UserProfile,
+    product_labels_prefetch,
     sync_product_specs_from_json,
 )
 
@@ -68,7 +69,7 @@ def _parse_price_param(raw: str | None) -> Decimal | None:
 
 def _build_subcategory_filters(category: Category, request_get) -> tuple[list[dict], dict]:
     """Фильтры сайдбара для выбранной категории: цена и характеристики из БД."""
-    base_qs = Product.objects.filter(category=category)
+    base_qs = Product.objects.filter(category=category, is_active=True)
     bounds = base_qs.aggregate(min_price=Min("price"), max_price=Max("price"))
 
     price_filter = {
@@ -82,7 +83,11 @@ def _build_subcategory_filters(category: Category, request_get) -> tuple[list[di
     attributes = category.spec_attributes.order_by("sort_order", "id")
     for attribute in attributes:
         value_rows = (
-            ProductSpecValue.objects.filter(product__category=category, attribute=attribute)
+            ProductSpecValue.objects.filter(
+                product__category=category,
+                product__is_active=True,
+                attribute=attribute,
+            )
             .values("value")
             .annotate(count=Count("id"))
             .order_by("value")
@@ -110,7 +115,11 @@ def _build_subcategory_filters(category: Category, request_get) -> tuple[list[di
 
 def _apply_subcategory_filters(category: Category, request_get):
     """Возвращает queryset товаров с учётом GET-фильтров."""
-    qs = Product.objects.filter(category=category).select_related("category")
+    qs = (
+        Product.objects.filter(category=category, is_active=True)
+        .select_related("category")
+        .prefetch_related(product_labels_prefetch())
+    )
 
     price_min = _parse_price_param(request_get.get("price_min"))
     price_max = _parse_price_param(request_get.get("price_max"))
@@ -1142,7 +1151,7 @@ def _seed_demo_data() -> None:
 def index(request):
     _seed_demo_data()
     categories = Category.objects.filter(is_featured=True)[:6]
-    promo_products = Product.objects.all()[:4]
+    promo_products = Product.objects.active().prefetch_related(product_labels_prefetch())[:4]
     return render(request, "shop/index.html", {"categories": categories, "promo_products": promo_products})
 
 
@@ -1201,12 +1210,12 @@ def sub_category(request, slug=None):
 def product_detail(request, slug=None):
     _seed_demo_data()
     if not slug:
-        first = Product.objects.first()
+        first = Product.objects.active().order_by("id").first()
         if not first:
             return redirect("index")
         return redirect("product_detail", slug=first.slug)
     product = get_object_or_404(
-        Product.objects.select_related("category").prefetch_related(
+        Product.objects.select_related("category", "redirect_product").prefetch_related(
             Prefetch(
                 "spec_values",
                 queryset=ProductSpecValue.objects.select_related("attribute").order_by(
@@ -1218,9 +1227,18 @@ def product_detail(request, slug=None):
                 "gallery_images",
                 queryset=ProductGalleryImage.objects.order_by("sort_order", "id"),
             ),
+            product_labels_prefetch(),
         ),
         slug=slug,
     )
+
+    if not product.is_active:
+        if product.redirect_product_id:
+            return redirect(
+                reverse("product_detail", kwargs={"slug": product.redirect_product.slug}),
+                permanent=True,
+            )
+        raise Http404("Товар недоступен")
 
     review_form = ProductReviewForm()
     question_form = ProductQuestionForm()
@@ -1409,10 +1427,10 @@ def search(request):
     products_qs = Product.objects.none()
     if query:
         products_qs = (
-            Product.objects.filter(
-                Q(name__icontains=query) | Q(sku__icontains=query) | Q(description__icontains=query),
-            )
+            Product.objects.active()
+            .filter(Q(name__icontains=query) | Q(sku__icontains=query) | Q(description__icontains=query))
             .select_related("category")
+            .prefetch_related(product_labels_prefetch())
             .order_by("name")
         )
     page_obj = Paginator(products_qs, PRODUCTS_PER_PAGE).get_page(request.GET.get("page"))
@@ -1456,7 +1474,17 @@ def favorite_toggle(request, product_id):
 
 @login_required(login_url=reverse_lazy("index"))
 def account_favorites(request):
-    favorites = Favorite.objects.filter(user=request.user).select_related("product").order_by("-created_at")
+    favorites = (
+        Favorite.objects.filter(user=request.user)
+        .select_related("product")
+        .prefetch_related(
+            Prefetch(
+                "product",
+                queryset=Product.objects.prefetch_related(product_labels_prefetch()),
+            ),
+        )
+        .order_by("-created_at")
+    )
     return render(request, "shop/account_favorites.html", {"favorites": favorites})
 
 
