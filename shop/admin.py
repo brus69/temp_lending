@@ -12,11 +12,14 @@ from django.utils.html import format_html
 
 from openpyxl import Workbook, load_workbook
 
+from .admin_mixins import RichTextAdminMixin
 from .models import (
     Article,
     Category,
     CategorySpecAttribute,
     Favorite,
+    HomepageDocument,
+    Manager,
     News,
     Order,
     OrderItem,
@@ -29,6 +32,7 @@ from .models import (
     ProductGalleryImage,
     ProductSpecValue,
     Promotion,
+    TopMenuLink,
     UserProfile,
 )
 
@@ -37,6 +41,61 @@ class CategorySpecAttributeInline(admin.TabularInline):
     model = CategorySpecAttribute
     extra = 1
     ordering = ("sort_order", "id")
+    fields = ("name", "sort_order", "yandex_feed_include", "yandex_feed_param_role")
+
+
+class CategoryManagerInline(admin.TabularInline):
+    model = Manager.categories.through
+    extra = 1
+    verbose_name = "Менеджер"
+    verbose_name_plural = "Менеджеры категории"
+    autocomplete_fields = ("manager",)
+
+
+@admin.register(Manager)
+class ManagerAdmin(admin.ModelAdmin):
+    list_display = ("name", "phone", "is_active", "sort_order", "category_count")
+    list_editable = ("is_active", "sort_order")
+    list_filter = ("is_active", "categories")
+    search_fields = ("name", "phone")
+    ordering = ("sort_order", "name")
+    filter_horizontal = ("categories",)
+    readonly_fields = ("photo_preview",)
+    fieldsets = (
+        (None, {"fields": ("name", "phone", "is_active", "sort_order")}),
+        ("Фото", {"fields": ("photo", "photo_url", "photo_preview")}),
+        ("Категории", {"fields": ("categories",)}),
+    )
+
+    @admin.display(description="Категорий")
+    def category_count(self, obj: Manager) -> int:
+        return obj.categories.count()
+
+    @admin.display(description="Предпросмотр фото")
+    def photo_preview(self, obj: Manager) -> str:
+        url = obj.primary_photo_url if obj and obj.pk else ""
+        if not url:
+            return "—"
+        return format_html(
+            '<img src="{}" alt="" style="max-height:140px;max-width:100%;object-fit:contain" />',
+            url,
+        )
+
+
+@admin.register(TopMenuLink)
+class TopMenuLinkAdmin(RichTextAdminMixin, admin.ModelAdmin):
+    list_display = ("title", "slug", "sort_order", "is_active", "updated_at")
+    list_editable = ("sort_order", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("title", "slug", "body", "meta_title")
+    prepopulated_fields = {"slug": ("title",)}
+    ordering = ("sort_order", "id")
+    readonly_fields = ("updated_at",)
+    fieldsets = (
+        (None, {"fields": ("title", "slug", "sort_order", "is_active", "updated_at")}),
+        ("SEO", {"fields": ("meta_title", "meta_description"), "classes": ("collapse",)}),
+        ("Текст страницы", {"fields": ("body",)}),
+    )
 
 
 @admin.register(Category)
@@ -44,16 +103,23 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "slug",
+        "yandex_feed_enabled",
         "show_in_top_menu",
         "default_listing_view",
         "product_count",
+        "manager_count",
         "is_featured",
         "sort_order",
     )
-    list_editable = ("show_in_top_menu", "is_featured", "sort_order")
+    list_editable = ("yandex_feed_enabled", "show_in_top_menu", "is_featured", "sort_order")
+    list_filter = ("yandex_feed_enabled", "is_featured", "show_in_top_menu")
     search_fields = ("name", "slug")
-    inlines = [CategorySpecAttributeInline]
-    readonly_fields = ("product_count", "image_preview")
+    inlines = [CategorySpecAttributeInline, CategoryManagerInline]
+    readonly_fields = ("image_preview",)
+
+    @admin.display(description="Менеджеров")
+    def manager_count(self, obj: Category) -> int:
+        return obj.managers.count()
 
     @admin.display(description="Предпросмотр изображения")
     def image_preview(self, obj: Category) -> str:
@@ -79,14 +145,14 @@ class CategoryAdmin(admin.ModelAdmin):
                 ),
             },
         ),
-        ("SEO", {"fields": ("meta_title", "meta_description"), "classes": ("collapse",)}),
         (
-            "Каталог",
+            "Фид Яндекс Маркета",
             {
-                "fields": ("product_count",),
-                "description": "Считается автоматически по товарам в категории.",
+                "fields": ("yandex_feed_enabled",),
+                "description": "Если выключено, товары категории не попадут в /feeds/yandex.xml (кроме принудительно включённых).",
             },
         ),
+        ("SEO", {"fields": ("meta_title", "meta_description"), "classes": ("collapse",)}),
     )
 
 
@@ -113,6 +179,7 @@ class ProductQuestionAdmin(admin.ModelAdmin):
 class ProductSpecValueInline(admin.TabularInline):
     model = ProductSpecValue
     extra = 1
+    fields = ("attribute", "value", "yandex_feed_include")
 
     def get_formset(self, request, obj=None, **kwargs):
         category_id = obj.category_id if obj else None
@@ -204,10 +271,19 @@ class ProductLabelAdmin(admin.ModelAdmin):
 
 
 @admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
+class ProductAdmin(RichTextAdminMixin, admin.ModelAdmin):
+    rich_text_fields = ("description",)
     form = ProductAdminForm
-    list_display = ("name", "sku", "category", "price", "is_active", "labels_display")
-    list_filter = ("is_active", "category", "labels")
+    list_display = (
+        "name",
+        "sku",
+        "category",
+        "price",
+        "is_active",
+        "yandex_feed_mode",
+        "labels_display",
+    )
+    list_filter = ("is_active", "yandex_feed_mode", "category", "labels")
     search_fields = ("name", "sku", "slug")
     autocomplete_fields = ("redirect_product",)
     filter_horizontal = ("labels",)
@@ -259,6 +335,13 @@ class ProductAdmin(admin.ModelAdmin):
             {
                 "fields": ("is_active", "redirect_product"),
                 "description": "Снимите «Товар активен», чтобы скрыть товар с витрины и настроить редирект 301.",
+            },
+        ),
+        (
+            "Фид Яндекс Маркета",
+            {
+                "fields": ("yandex_feed_mode", "yandex_feed_include_description"),
+                "description": "Настройки выгрузки в /feeds/yandex.xml. Характеристики — в блоке ниже (колонка «В фиде»).",
             },
         ),
         (
@@ -570,7 +653,7 @@ class OrganizationAdmin(admin.ModelAdmin):
     search_fields = ("name", "inn", "kpp", "owner__email", "owner__username")
 
 
-class PublishedContentAdmin(admin.ModelAdmin):
+class PublishedContentAdmin(RichTextAdminMixin, admin.ModelAdmin):
     list_display = ("title", "slug", "start_date", "end_date", "is_published", "published_at")
     list_filter = ("is_published", "published_at", "start_date")
     search_fields = ("title", "slug", "excerpt", "body")
@@ -581,6 +664,30 @@ class PublishedContentAdmin(admin.ModelAdmin):
         (None, {"fields": ("title", "slug", "excerpt", "image_url", "start_date", "end_date", "is_published", "published_at")}),
         ("Текст", {"fields": ("body",)}),
     )
+
+
+@admin.register(HomepageDocument)
+class HomepageDocumentAdmin(admin.ModelAdmin):
+    list_display = ("title", "kind", "sort_order", "is_active", "image_preview")
+    list_editable = ("sort_order", "is_active")
+    list_filter = ("kind", "is_active")
+    search_fields = ("title",)
+    ordering = ("kind", "sort_order", "id")
+    readonly_fields = ("image_preview",)
+    fieldsets = (
+        (None, {"fields": ("kind", "title", "sort_order", "is_active")}),
+        ("Изображение", {"fields": ("image", "image_url", "image_preview")}),
+    )
+
+    @admin.display(description="Превью")
+    def image_preview(self, obj: HomepageDocument) -> str:
+        url = obj.display_image_url if obj and obj.pk else ""
+        if not url:
+            return "—"
+        return format_html(
+            '<img src="{}" alt="" style="max-height:160px;max-width:120px;object-fit:contain" />',
+            url,
+        )
 
 
 @admin.register(Article)

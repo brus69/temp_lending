@@ -1,6 +1,7 @@
 from decimal import Decimal
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
@@ -11,11 +12,16 @@ from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from django.db.models import Count, Max, Min, Prefetch, Q
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.views.decorators.cache import cache_page
 from django.views.decorators.http import require_POST
+
+from shop.cities import get_client_ip, lookup_city_by_ip
+from shop.feeds.yandex import build_yandex_yml_feed
+from shop.managers_service import get_managers_for_category, get_primary_manager_for_category
 
 from .cart import add_to_cart, build_cart_items, clear_cart, remove_from_cart, set_quantity
 from .forms import ProductQuestionForm, ProductReviewForm, validate_review_image_files
@@ -23,6 +29,7 @@ from .models import (
     Article,
     Category,
     Favorite,
+    HomepageDocument,
     News,
     Order,
     OrderItem,
@@ -34,6 +41,7 @@ from .models import (
     ProductReviewPhoto,
     ProductSpecValue,
     Promotion,
+    TopMenuLink,
     UserProfile,
     product_gallery_prefetch,
     product_labels_prefetch,
@@ -1176,11 +1184,36 @@ def _seed_demo_data() -> None:
     _seed_reviews_questions_if_needed()
 
 
+HOME_CONTENT_CAROUSEL_LIMIT = 12
+HOME_DOCUMENTS_LIMIT = 24
+
+
+def _homepage_documents(kind: str):
+    return HomepageDocument.objects.filter(is_active=True, kind=kind).order_by("sort_order", "id")[
+        :HOME_DOCUMENTS_LIMIT
+    ]
+
+
 def index(request):
     _seed_demo_data()
     categories = Category.objects.filter(is_featured=True)[:6]
     promo_products = Product.objects.active().prefetch_related(product_labels_prefetch())[:4]
-    return render(request, "shop/index.html", {"categories": categories, "promo_products": promo_products})
+    content_order = "-published_at", "-id"
+    return render(
+        request,
+        "shop/index.html",
+        {
+            "categories": categories,
+            "promo_products": promo_products,
+            "home_news": _published_content_queryset(News).order_by(*content_order)[:HOME_CONTENT_CAROUSEL_LIMIT],
+            "home_articles": _published_content_queryset(Article).order_by(*content_order)[:HOME_CONTENT_CAROUSEL_LIMIT],
+            "home_promotions": _published_content_queryset(Promotion).order_by(*content_order)[
+                :HOME_CONTENT_CAROUSEL_LIMIT
+            ],
+            "home_certificates": _homepage_documents(HomepageDocument.Kind.CERTIFICATE),
+            "home_thank_you_letters": _homepage_documents(HomepageDocument.Kind.THANK_YOU),
+        },
+    )
 
 
 def category(request):
@@ -1327,6 +1360,9 @@ def product_detail(request, slug=None):
         and ProductReview.objects.filter(user=request.user, product=product).exists()
     )
 
+    category_managers = list(get_managers_for_category(product.category))
+    product_expert_manager = get_primary_manager_for_category(product.category)
+
     return render(
         request,
         "shop/product_detail.html",
@@ -1338,6 +1374,8 @@ def product_detail(request, slug=None):
             "question_form": question_form,
             "user_has_review": user_has_review,
             "questions_count": len(questions),
+            "category_managers": category_managers,
+            "product_expert_manager": product_expert_manager,
         },
     )
 
@@ -1378,6 +1416,63 @@ def quick_order(request, product_id):
     comment = request.POST.get("comment", "").strip()
     if not customer_name or not phone:
         return redirect("product_detail", slug=product.slug)
+    order = Order.objects.create(
+        customer_name=customer_name,
+        phone=phone,
+        address="(уточнить по телефону)",
+        comment=comment,
+        total_price=product.price * qty,
+    )
+    OrderItem.objects.create(
+        order=order,
+        product=product,
+        quantity=qty,
+        unit_price=product.price,
+    )
+    return redirect("checkout_success", order_id=order.id)
+
+
+@require_POST
+def expert_product_request(request, product_id):
+    _seed_demo_data()
+    product = get_object_or_404(Product, id=product_id, is_active=True)
+    if not request.POST.get("personal_data_consent"):
+        messages.error(request, "Необходимо согласие на обработку персональных данных.")
+        return redirect("product_detail", slug=product.slug)
+
+    try:
+        qty = max(1, int(request.POST.get("quantity", 1) or 1))
+    except (TypeError, ValueError):
+        qty = 1
+
+    customer_name = request.POST.get("customer_name", "").strip()
+    phone = request.POST.get("phone", "").strip()
+    question = request.POST.get("question", "").strip()
+
+    allowed_managers = get_managers_for_category(product.category)
+    manager_name = settings.EXPERT_HELP_NAME
+    manager_id_raw = request.POST.get("manager_id", "").strip()
+    if manager_id_raw:
+        try:
+            selected = allowed_managers.filter(pk=int(manager_id_raw)).first()
+        except (TypeError, ValueError):
+            selected = None
+        if selected:
+            manager_name = selected.name
+    else:
+        primary = allowed_managers.first()
+        if primary:
+            manager_name = primary.name
+
+    if not customer_name or not phone:
+        messages.error(request, "Укажите имя и телефон.")
+        return redirect("product_detail", slug=product.slug)
+
+    comment_parts = [f"Менеджер: {manager_name}"]
+    if question:
+        comment_parts.append(question)
+    comment = "\n\n".join(comment_parts)
+
     order = Order.objects.create(
         customer_name=customer_name,
         phone=phone,
@@ -1945,3 +2040,22 @@ def promotion_detail(request, slug):
             breadcrumb_label="Наши акции",
         ),
     )
+
+
+def top_menu_page(request, slug):
+    page = get_object_or_404(TopMenuLink, slug=slug, is_active=True)
+    return render(request, "shop/top_menu_page.html", {"page": page})
+
+
+def detect_city(request):
+    """Первичное определение города по IP посетителя (JSON)."""
+    ip = get_client_ip(request)
+    city = lookup_city_by_ip(ip or "")
+    return JsonResponse({"city": city, "from_ip": bool(ip)})
+
+
+@cache_page(60 * 60 * 6)
+def yandex_market_feed(request):
+    """YML-фид товаров для Яндекс Маркета / партнёрской программы."""
+    xml = build_yandex_yml_feed(request)
+    return HttpResponse(xml, content_type="application/xml; charset=utf-8")

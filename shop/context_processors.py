@@ -2,7 +2,16 @@ from django.conf import settings
 from django.db.models import Prefetch
 
 from .cart import cart_count
-from .models import Article, Category, CategorySpecAttribute, Favorite, News, ProductSpecValue, Promotion
+from .models import (
+    Article,
+    Category,
+    CategorySpecAttribute,
+    Favorite,
+    News,
+    ProductSpecValue,
+    Promotion,
+    TopMenuLink,
+)
 
 
 def cart_context(request):
@@ -17,7 +26,9 @@ def favorites_context(request):
 
 
 def store_context(request):
-    return {"store_name": settings.STORE_NAME}
+    return {
+        "store_name": settings.STORE_NAME,
+    }
 
 
 def header_menu_context(request):
@@ -26,6 +37,12 @@ def header_menu_context(request):
             "sort_order",
             "name",
         ),
+    }
+
+
+def header_top_menu_context(request):
+    return {
+        "header_top_links": TopMenuLink.objects.filter(is_active=True).order_by("sort_order", "id"),
     }
 
 

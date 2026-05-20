@@ -8,6 +8,8 @@ from django.db.models import Avg, Count, Prefetch
 from django.utils import timezone
 from django.utils.text import slugify
 
+from shop.html_sanitize import sanitize_html
+
 
 def product_image_upload_to(instance: "Product", filename: str) -> str:
     """Файлы в media/products/<slug_категории>/<slug_товара>.<ext>"""
@@ -55,6 +57,81 @@ def category_image_upload_to(instance: "Category", filename: str) -> str:
     return f"categories/{base}{ext}"
 
 
+def manager_photo_upload_to(instance: "Manager", filename: str) -> str:
+    ext = Path(filename).suffix.lower()
+    allowed = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    if ext not in allowed:
+        ext = ".jpg"
+    base = slugify(instance.name, allow_unicode=True) or (str(instance.pk) if instance.pk else "manager")
+    return f"managers/{base}{ext}"
+
+
+class Manager(models.Model):
+    """Менеджер для консультаций по товарам выбранных категорий."""
+
+    name = models.CharField("Имя", max_length=120)
+    phone = models.CharField(
+        "Телефон",
+        max_length=32,
+        blank=True,
+        help_text="Пусто — подставится телефон по умолчанию из настроек сайта.",
+    )
+    photo = models.ImageField(
+        "Фото (загрузка)",
+        upload_to=manager_photo_upload_to,
+        blank=True,
+        null=True,
+    )
+    photo_url = models.URLField(
+        "URL фото",
+        max_length=500,
+        blank=True,
+        help_text="Если файл не загружен, используется эта ссылка.",
+    )
+    categories = models.ManyToManyField(
+        "Category",
+        verbose_name="Категории",
+        blank=True,
+        related_name="managers",
+        help_text="Категории, для товаров которых показывается этот менеджер.",
+    )
+    sort_order = models.PositiveIntegerField("Порядок", default=0)
+    is_active = models.BooleanField("Активен", default=True)
+
+    class Meta:
+        verbose_name = "Менеджер"
+        verbose_name_plural = "Менеджеры"
+        ordering = ["sort_order", "name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def display_phone(self) -> str:
+        from django.conf import settings
+
+        return (self.phone or "").strip() or getattr(settings, "EXPERT_HELP_PHONE", "")
+
+    @property
+    def display_phone_tel(self) -> str:
+        from shop.managers_service import phone_to_tel
+
+        return phone_to_tel(self.display_phone)
+
+    @property
+    def primary_photo_url(self) -> str:
+        if self.photo:
+            try:
+                return self.photo.url
+            except ValueError:
+                pass
+        if (self.photo_url or "").strip():
+            return self.photo_url.strip()
+        from shop.managers_service import default_manager_photo_url
+
+        return default_manager_photo_url()
+
+
 class Category(models.Model):
     class ListingView(models.TextChoices):
         GRID = "grid", "Плитка"
@@ -97,6 +174,11 @@ class Category(models.Model):
         default=ListingView.GRID,
         help_text="Как показывать каталог этой категории при первом открытии страницы.",
     )
+    yandex_feed_enabled = models.BooleanField(
+        "В фиде Яндекс Маркета",
+        default=True,
+        help_text="Товары категории по умолчанию попадают в YML-фид (/feeds/yandex.xml), если у товара не задано иное.",
+    )
 
     class Meta:
         verbose_name = "Категория"
@@ -123,6 +205,12 @@ class Category(models.Model):
         return (self.image_url or "").strip()
 
 
+class YandexFeedParamRole(models.TextChoices):
+    PARAM = "param", "Параметр (<param>)"
+    VENDOR = "vendor", "Производитель (<vendor>)"
+    BARCODE = "barcode", "Штрихкод (<barcode>)"
+
+
 class CategorySpecAttribute(models.Model):
     """Набор названий характеристик для категории (шаблон для товаров)."""
 
@@ -134,6 +222,18 @@ class CategorySpecAttribute(models.Model):
     )
     name = models.CharField("Название", max_length=120)
     sort_order = models.PositiveIntegerField("Порядок отображения", default=0)
+    yandex_feed_include = models.BooleanField(
+        "В фиде Яндекс Маркета",
+        default=True,
+        help_text="По умолчанию выгружать эту характеристику в YML-фид для всех товаров категории.",
+    )
+    yandex_feed_param_role = models.CharField(
+        "Роль в фиде",
+        max_length=16,
+        choices=YandexFeedParamRole.choices,
+        default=YandexFeedParamRole.PARAM,
+        help_text="Как передать значение в YML: обычный param, vendor или barcode.",
+    )
 
     class Meta:
         verbose_name = "Характеристика категории"
@@ -213,9 +313,24 @@ def product_gallery_prefetch() -> Prefetch:
     )
 
 
+class YandexFeedMode(models.TextChoices):
+    INHERIT = "inherit", "Как в категории"
+    INCLUDE = "include", "Включить в фид"
+    EXCLUDE = "exclude", "Исключить из фида"
+
+
 class ProductQuerySet(models.QuerySet):
     def active(self):
         return self.filter(is_active=True)
+
+    def for_yandex_feed(self):
+        return self.active().filter(
+            models.Q(yandex_feed_mode=YandexFeedMode.INCLUDE)
+            | models.Q(
+                yandex_feed_mode=YandexFeedMode.INHERIT,
+                category__yandex_feed_enabled=True,
+            ),
+        )
 
 
 class Product(models.Model):
@@ -281,6 +396,18 @@ class Product(models.Model):
         related_name="inactive_redirect_sources",
         help_text="Обязательно, если товар неактивен: посетитель будет перенаправлен на выбранный товар.",
     )
+    yandex_feed_mode = models.CharField(
+        "Фид Яндекс Маркета",
+        max_length=16,
+        choices=YandexFeedMode.choices,
+        default=YandexFeedMode.INHERIT,
+        help_text="«Как в категории» — по галочке категории. Можно принудительно включить или исключить товар.",
+    )
+    yandex_feed_include_description = models.BooleanField(
+        "Описание в фиде",
+        default=True,
+        help_text="Выгружать поле description в YML-фид.",
+    )
 
     objects = ProductQuerySet.as_manager()
 
@@ -317,6 +444,11 @@ class Product(models.Model):
             raise ValidationError(
                 {"redirect_product": "Редирект задаётся только для неактивного товара."},
             )
+
+    def save(self, *args, **kwargs):
+        if self.description:
+            self.description = sanitize_html(self.description)
+        super().save(*args, **kwargs)
 
     @property
     def primary_image_url(self) -> str:
@@ -372,6 +504,13 @@ class ProductSpecValue(models.Model):
         related_name="product_values",
     )
     value = models.CharField("Значение", max_length=512)
+    yandex_feed_include = models.BooleanField(
+        "В фиде Яндекс Маркета",
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Пусто — как у характеристики категории. Да/нет — переопределение для этого товара.",
+    )
 
     class Meta:
         verbose_name = "Значение характеристики"
@@ -390,6 +529,13 @@ class ProductSpecValue(models.Model):
                 raise ValidationError(
                     {"attribute": "Выберите характеристику из категории этого товара."},
                 )
+
+    def include_in_yandex_feed(self) -> bool:
+        if self.yandex_feed_include is False:
+            return False
+        if self.yandex_feed_include is True:
+            return True
+        return self.attribute.yandex_feed_include
 
 
 class ProductGalleryImage(models.Model):
@@ -648,6 +794,49 @@ class Organization(models.Model):
         return f"{self.name} ({self.inn})"
 
 
+class TopMenuLink(models.Model):
+    """Информационная страница из верхней полосы шапки."""
+
+    title = models.CharField("Название в меню", max_length=120)
+    slug = models.SlugField("Слаг", max_length=160, unique=True)
+    meta_title = models.CharField(
+        "SEO — title",
+        max_length=255,
+        blank=True,
+        help_text="Заголовок вкладки и для поисковиков. Пусто — используется название.",
+    )
+    meta_description = models.CharField(
+        "SEO — description",
+        max_length=320,
+        blank=True,
+        help_text="Мета-описание для поиска (рекомендуется до ~320 символов).",
+    )
+    body = models.TextField("Текст страницы")
+    sort_order = models.PositiveIntegerField("Порядок в меню", default=0)
+    is_active = models.BooleanField("Показывать в меню", default=True)
+    updated_at = models.DateTimeField("Обновлено", auto_now=True)
+
+    class Meta:
+        verbose_name = "Страница верхнего меню"
+        verbose_name_plural = "Верхнее меню"
+        ordering = ["sort_order", "id"]
+
+    def __str__(self) -> str:
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title, allow_unicode=True) or "page"
+        if self.body:
+            self.body = sanitize_html(self.body)
+        super().save(*args, **kwargs)
+
+    def get_absolute_url(self) -> str:
+        from django.urls import reverse
+
+        return reverse("top_menu_page", args=[self.slug])
+
+
 class PublishedContentBase(models.Model):
     title = models.CharField("Заголовок", max_length=200)
     slug = models.SlugField("Слаг", max_length=220, unique=True)
@@ -700,7 +889,79 @@ class PublishedContentBase(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.title) or "item"
+        if self.body:
+            self.body = sanitize_html(self.body)
         super().save(*args, **kwargs)
+
+
+def homepage_document_upload_to(instance: "HomepageDocument", filename: str) -> str:
+    ext = Path(filename).suffix.lower()
+    allowed = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    if ext not in allowed:
+        ext = ".jpg"
+    base = slugify(instance.title, allow_unicode=True) or str(instance.pk or "doc")
+    return f"homepage_documents/{instance.kind}/{base}{ext}"
+
+
+class HomepageDocument(models.Model):
+    """Сертификат или благодарственное письмо для карусели на главной."""
+
+    class Kind(models.TextChoices):
+        CERTIFICATE = "certificate", "Сертификат"
+        THANK_YOU = "thank_you", "Благодарственное письмо"
+
+    kind = models.CharField(
+        "Тип",
+        max_length=20,
+        choices=Kind.choices,
+        db_index=True,
+    )
+    title = models.CharField(
+        "Подпись",
+        max_length=200,
+        blank=True,
+        help_text="Необязательно. Используется в alt у изображения.",
+    )
+    image = models.ImageField(
+        "Изображение",
+        upload_to=homepage_document_upload_to,
+        blank=True,
+        null=True,
+    )
+    image_url = models.URLField(
+        "URL изображения",
+        max_length=500,
+        blank=True,
+        help_text="Если файл не загружен, используется эта ссылка.",
+    )
+    sort_order = models.PositiveIntegerField("Порядок", default=0)
+    is_active = models.BooleanField("Показывать на главной", default=True)
+
+    class Meta:
+        verbose_name = "Документ на главной"
+        verbose_name_plural = "Документы на главной"
+        ordering = ["kind", "sort_order", "id"]
+
+    def __str__(self) -> str:
+        label = self.title or self.get_kind_display()
+        return f"{label} ({self.get_kind_display()})"
+
+    @property
+    def display_image_url(self) -> str:
+        if self.image:
+            try:
+                return self.image.url
+            except ValueError:
+                pass
+        if (self.image_url or "").strip():
+            return self.image_url.strip()
+        return "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=400&h=560&q=80"
+
+    @property
+    def image_alt(self) -> str:
+        if self.title:
+            return self.title
+        return self.get_kind_display()
 
 
 class Article(PublishedContentBase):

@@ -28,6 +28,13 @@
     </div>
   </section>
 
+  {% include "shop/includes/content_carousel.html" with section_title="Новости" list_url_name="news_list" detail_url_name="news_detail" items=home_news %}
+  {% include "shop/includes/content_carousel.html" with section_title="Статьи" list_url_name="article_list" detail_url_name="article_detail" items=home_articles %}
+  {% include "shop/includes/content_carousel.html" with section_title="Акции" list_url_name="promotion_list" detail_url_name="promotion_detail" items=home_promotions %}
+
+  {% include "shop/includes/documents_carousel.html" with section_title="Сертификаты" items=home_certificates %}
+  {% include "shop/includes/documents_carousel.html" with section_title="Благодарственные письма" items=home_thank_you_letters %}
+
   <section>
     <div class="mb-3 flex items-center justify-between">
       <h2 class="vi-section-title">Со скидкой для физлиц</h2>

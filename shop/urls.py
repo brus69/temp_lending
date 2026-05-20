@@ -20,6 +20,7 @@ urlpatterns = [
     path("cart/remove/<int:product_id>/", views.cart_remove, name="cart_remove"),
     path("favorites/toggle/<int:product_id>/", views.favorite_toggle, name="favorite_toggle"),
     path("quick-order/<int:product_id>/", views.quick_order, name="quick_order"),
+    path("expert-request/<int:product_id>/", views.expert_product_request, name="expert_product_request"),
     path("checkout/", views.checkout, name="checkout"),
     path("checkout/success/<int:order_id>/", views.checkout_success, name="checkout_success"),
     path("search/", views.search, name="search"),
@@ -41,4 +42,7 @@ urlpatterns = [
     path("news/<slug:slug>/", views.news_detail, name="news_detail"),
     path("promotions/", views.promotion_list, name="promotion_list"),
     path("promotions/<slug:slug>/", views.promotion_detail, name="promotion_detail"),
+    path("api/city/detect/", views.detect_city, name="detect_city"),
+    path("feeds/yandex.xml", views.yandex_market_feed, name="yandex_market_feed"),
+    path("info/<slug:slug>/", views.top_menu_page, name="top_menu_page"),
 ]

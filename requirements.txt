@@ -1,4 +1,6 @@
 django
+django-ckeditor-5
+bleach
 pillow
 openpyxl
 gunicorn

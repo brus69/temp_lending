@@ -1,0 +1,42 @@
+{% if items %}
+<section class="vi-documents-carousel-section">
+  <h2 class="vi-section-title mb-4">{{ section_title }}</h2>
+
+  <div class="vi-content-carousel vi-documents-carousel" data-content-carousel>
+    <button
+      type="button"
+      class="vi-content-carousel__nav vi-content-carousel__nav--prev"
+      data-carousel-prev
+      aria-label="Предыдущие"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+    </button>
+
+    <div class="vi-content-carousel__track vi-documents-carousel__track" data-carousel-track tabindex="0">
+      {% for item in items %}
+      <figure class="vi-document-card">
+        <img
+          src="{{ item.display_image_url }}"
+          alt="{{ item.image_alt }}"
+          class="vi-document-card__image"
+          loading="lazy"
+        >
+      </figure>
+      {% endfor %}
+    </div>
+
+    <button
+      type="button"
+      class="vi-content-carousel__nav vi-content-carousel__nav--next"
+      data-carousel-next
+      aria-label="Следующие"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
+  </div>
+</section>
+{% endif %}

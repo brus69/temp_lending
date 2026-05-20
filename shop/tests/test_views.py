@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
 
-from shop.models import Favorite, Order, OrderItem
+from shop.models import Favorite, Manager, Order, OrderItem
 from shop.tests.factories import make_category, make_product, make_user
 
 
@@ -20,6 +20,44 @@ class ShopFlowTests(TestCase):
             old_price=Decimal("120.00"),
         )
         self.user = make_user(username="u1", email="u1@test.local", password="testpass123")
+        self.manager = Manager.objects.create(
+            name="Максим",
+            phone="+7 (812) 507-64-54",
+            is_active=True,
+        )
+        self.manager.categories.add(self.category)
+
+    @patch("shop.views._seed_demo_data", autospec=True)
+    def test_product_detail_shows_expert_help_block(self, _seed_mock):
+        response = self.client.get(reverse("product_detail", args=[self.product.slug]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "vi-expert-help")
+        self.assertContains(response, "Помощь эксперта")
+        self.assertContains(response, "Заказать звонок")
+        self.assertContains(response, "Максим")
+        self.assertContains(response, "data-expert-request-open")
+        self.assertContains(response, "Заявка на покупку товара")
+        self.assertContains(response, "Оформить заказ")
+
+    @patch("shop.views._seed_demo_data", autospec=True)
+    def test_expert_product_request_creates_order(self, _seed_mock):
+        response = self.client.post(
+            reverse("expert_product_request", args=[self.product.id]),
+            {
+                "customer_name": "Иван Иванович",
+                "phone": "+79991234567",
+                "manager_id": str(self.manager.id),
+                "question": "Нужна консультация",
+                "personal_data_consent": "1",
+                "quantity": "2",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        order = Order.objects.latest("id")
+        self.assertEqual(order.customer_name, "Иван Иванович")
+        self.assertIn("Менеджер: Максим", order.comment)
+        self.assertIn("Нужна консультация", order.comment)
+        self.assertEqual(order.items.get().quantity, 2)
 
     @patch("shop.views._seed_demo_data", autospec=True)
     def test_sub_category_has_pagination(self, _seed_mock):

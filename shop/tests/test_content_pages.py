@@ -24,6 +24,20 @@ class ContentPagesTests(TestCase):
         self.assertContains(response, 'href="/articles/"')
         self.assertContains(response, f'href="/articles/{article.slug}/"')
 
+    def test_homepage_has_content_carousels(self):
+        news = News.objects.first()
+        article = Article.objects.first()
+        promotion = Promotion.objects.first()
+        response = self.client.get("/")
+        self.assertContains(response, "vi-content-carousel")
+        self.assertContains(response, "Новости")
+        self.assertContains(response, "Статьи")
+        self.assertContains(response, "Акции")
+        self.assertContains(response, f'href="/news/{news.slug}/"')
+        self.assertContains(response, f'href="/articles/{article.slug}/"')
+        self.assertContains(response, f'href="/promotions/{promotion.slug}/"')
+        self.assertContains(response, "vi-home-content-card")
+
     def test_promotion_list_matches_card_layout(self):
         response = self.client.get("/promotions/")
         self.assertEqual(response.status_code, 200)

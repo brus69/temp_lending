@@ -32,8 +32,47 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sitemaps",
+    "django.contrib.sites",
+    "django_ckeditor_5",
     "shop",
 ]
+
+CKEDITOR_5_CONFIGS = {
+    "default": {
+        "language": "ru",
+        "toolbar": {
+            "items": [
+                "heading",
+                "|",
+                "bold",
+                "italic",
+                "underline",
+                "link",
+                "bulletedList",
+                "numberedList",
+                "blockQuote",
+                "|",
+                "insertTable",
+                "imageUpload",
+                "|",
+                "undo",
+                "redo",
+            ],
+        },
+    },
+}
+
+CKEDITOR_5_UPLOAD_PATH = "uploads/editor"
+CKEDITOR_5_FILE_UPLOAD_PERMISSION = "staff"
+
+SITE_ID = 1
+
+# Публичный URL сайта для sitemap и фидов (https://example.com). Пусто — домен из Sites в админке.
+PUBLIC_SITE_URL = os.environ.get("DJANGO_PUBLIC_SITE_URL", "").strip()
+
+# Параметр clid в ссылках товаров YML-фида (партнёрская программа Яндекс Маркета).
+YANDEX_FEED_CLID = os.environ.get("DJANGO_YANDEX_FEED_CLID", "").strip()
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -73,6 +112,7 @@ TEMPLATES = [
                 "shop.context_processors.favorites_context",
                 "shop.context_processors.store_context",
                 "shop.context_processors.header_menu_context",
+                "shop.context_processors.header_top_menu_context",
                 "shop.context_processors.catalog_menu_context",
                 "shop.context_processors.footer_content_context",
             ],
@@ -133,6 +173,13 @@ MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 STORE_NAME = os.environ.get("DJANGO_STORE_NAME", "Все инструменты").strip() or "Все инструменты"
+
+EXPERT_HELP_PHONE = os.environ.get("DJANGO_EXPERT_HELP_PHONE", "+7 (812) 507-64-54").strip()
+EXPERT_HELP_NAME = os.environ.get("DJANGO_EXPERT_HELP_NAME", "Максим").strip()
+EXPERT_HELP_PHOTO_URL = os.environ.get(
+    "DJANGO_EXPERT_HELP_PHOTO_URL",
+    "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=240&h=280&q=80",
+).strip()
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "no-reply@lendingstore.local"

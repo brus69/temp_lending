@@ -6,6 +6,26 @@ function applyDynamicBits() {
   });
 }
 
+function initHeaderTopBar() {
+  const topBar = document.querySelector(".vi-header-top-bar");
+  const spacer = document.querySelector(".vi-header-top-bar-spacer");
+  if (!topBar || !spacer) return;
+
+  const syncSpacerHeight = () => {
+    document.documentElement.style.setProperty(
+      "--vi-header-top-bar-height",
+      `${topBar.offsetHeight}px`,
+    );
+  };
+
+  syncSpacerHeight();
+  window.addEventListener("resize", syncSpacerHeight);
+  if ("ResizeObserver" in window) {
+    const observer = new ResizeObserver(syncSpacerHeight);
+    observer.observe(topBar);
+  }
+}
+
 function initCatalogMenu() {
   const toggle = document.querySelector("[data-catalog-toggle]");
   const menu = document.querySelector("[data-catalog-menu]");
@@ -84,6 +104,72 @@ function initCartQtyForms() {
     input.addEventListener("blur", clamp);
     form.addEventListener("submit", clamp);
   });
+}
+
+function initExpertRequestModal() {
+  const modal = document.querySelector("[data-expert-request-modal]");
+  if (!modal) return;
+  if (modal.dataset.initialized === "true") return;
+  modal.dataset.initialized = "true";
+
+  const dialog = modal.querySelector("[data-expert-request-dialog]");
+  const qtyHidden = modal.querySelector("[data-expert-request-qty]");
+  const nameInput = modal.querySelector('[name="customer_name"]');
+  const managerSelect = modal.querySelector("[data-expert-request-manager-select]");
+  const managerPhoto = modal.querySelector("[data-expert-request-photo]");
+  const openers = document.querySelectorAll("[data-expert-request-open]");
+  const closers = modal.querySelectorAll("[data-expert-request-close]");
+
+  const readCurrentQty = () => {
+    const cartQty = document.querySelector("[data-cart-qty-form] [data-qty-input]");
+    const raw = cartQty ? parseInt(cartQty.value, 10) : 1;
+    return Number.isNaN(raw) || raw < 1 ? 1 : raw;
+  };
+
+  const setOpenState = (isOpen) => {
+    modal.hidden = !isOpen;
+    modal.classList.toggle("hidden", !isOpen);
+    modal.classList.toggle("flex", isOpen);
+    modal.setAttribute("aria-hidden", String(!isOpen));
+    document.body.classList.toggle("overflow-hidden", isOpen);
+  };
+
+  const open = () => {
+    const qty = readCurrentQty();
+    if (qtyHidden) qtyHidden.value = String(qty);
+    setOpenState(true);
+    if (nameInput) {
+      window.requestAnimationFrame(() => nameInput.focus());
+    }
+  };
+
+  const close = () => setOpenState(false);
+
+  setOpenState(false);
+  openers.forEach((btn) => btn.addEventListener("click", open));
+  closers.forEach((btn) => btn.addEventListener("click", close));
+
+  modal.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (dialog && dialog.contains(target)) return;
+    close();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !modal.hidden) close();
+  });
+
+  if (managerSelect && managerPhoto) {
+    const syncPhoto = () => {
+      const option = managerSelect.selectedOptions[0];
+      if (!option) return;
+      const url = option.dataset.photoUrl;
+      if (url) managerPhoto.src = url;
+      managerPhoto.alt = option.textContent.trim();
+    };
+    managerSelect.addEventListener("change", syncPhoto);
+  }
 }
 
 function initQuickOrder() {
@@ -462,12 +548,38 @@ function initCityPicker() {
   const mainListEl = modal.querySelector("[data-city-main-list]");
   const closeBtn = modal.querySelector("[data-city-close]");
 
+  const hasStoredCity = () => {
+    try {
+      const v = localStorage.getItem(CITY_STORAGE_KEY);
+      return Boolean(v && v.trim());
+    } catch {
+      return false;
+    }
+  };
+
   const readStoredCity = () => {
     try {
       const v = localStorage.getItem(CITY_STORAGE_KEY);
       return v && v.trim() ? v.trim() : DEFAULT_CITY_LABEL;
     } catch {
       return DEFAULT_CITY_LABEL;
+    }
+  };
+
+  const detectCityFromIp = async () => {
+    if (hasStoredCity()) return;
+    try {
+      const response = await fetch("/api/city/detect/", {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const city = typeof data.city === "string" ? data.city.trim() : "";
+      if (!city) return;
+      localStorage.setItem(CITY_STORAGE_KEY, city);
+      label.textContent = city;
+    } catch {
+      /* сеть или блокировка — остаётся Москва */
     }
   };
 
@@ -542,6 +654,7 @@ function initCityPicker() {
   };
 
   label.textContent = readStoredCity();
+  void detectCityFromIp();
 
   if (mainListEl) {
     citiesForModalList().forEach((city) => {
@@ -1166,11 +1279,34 @@ function initProductListingView() {
   applyView(initialView);
 }
 
+function initContentCarousels() {
+  document.querySelectorAll("[data-content-carousel]").forEach((root) => {
+    const track = root.querySelector("[data-carousel-track]");
+    const prev = root.querySelector("[data-carousel-prev]");
+    const next = root.querySelector("[data-carousel-next]");
+    if (!(track instanceof HTMLElement) || !(prev instanceof HTMLButtonElement) || !(next instanceof HTMLButtonElement)) {
+      return;
+    }
+
+    const scrollStep = () => Math.max(track.clientWidth * 0.85, 280);
+
+    prev.addEventListener("click", () => {
+      track.scrollBy({ left: -scrollStep(), behavior: "smooth" });
+    });
+    next.addEventListener("click", () => {
+      track.scrollBy({ left: scrollStep(), behavior: "smooth" });
+    });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", applyDynamicBits);
+document.addEventListener("DOMContentLoaded", initHeaderTopBar);
+document.addEventListener("DOMContentLoaded", initContentCarousels);
 document.addEventListener("DOMContentLoaded", initCatalogMenu);
 document.addEventListener("DOMContentLoaded", initProductListingSort);
 document.addEventListener("DOMContentLoaded", initSubCategoryFilters);
 document.addEventListener("DOMContentLoaded", initCartQtyForms);
+document.addEventListener("DOMContentLoaded", initExpertRequestModal);
 document.addEventListener("DOMContentLoaded", initQuickOrder);
 document.addEventListener("DOMContentLoaded", initAuthModal);
 document.addEventListener("DOMContentLoaded", initCityPicker);

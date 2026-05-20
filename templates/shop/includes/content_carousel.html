@@ -1,0 +1,65 @@
+{% if items %}
+<section class="vi-content-carousel-section">
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <h2 class="vi-section-title">{{ section_title }}</h2>
+    <a
+      href="{% url list_url_name %}"
+      class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+    >
+      Смотреть все
+    </a>
+  </div>
+
+  <div class="vi-content-carousel" data-content-carousel>
+    <button
+      type="button"
+      class="vi-content-carousel__nav vi-content-carousel__nav--prev"
+      data-carousel-prev
+      aria-label="Предыдущие"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+    </button>
+
+    <div class="vi-content-carousel__track" data-carousel-track tabindex="0">
+      {% for item in items %}
+      <a
+        href="{% url detail_url_name item.slug %}"
+        class="vi-home-content-card group no-underline"
+      >
+        <div class="vi-home-content-card__media">
+          <img
+            src="{{ item.card_image_url }}"
+            alt="{{ item.title }}"
+            class="vi-home-content-card__image"
+            loading="lazy"
+          >
+        </div>
+        <div class="vi-home-content-card__body">
+          <h3 class="vi-home-content-card__title">{{ item.title }}</h3>
+          <p class="vi-home-content-card__date">
+            {% if item.display_start_date %}
+              {{ item.display_start_date|date:"d.m.Y" }}
+            {% elif item.published_at %}
+              {{ item.published_at|date:"d.m.Y" }}
+            {% endif %}
+          </p>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+
+    <button
+      type="button"
+      class="vi-content-carousel__nav vi-content-carousel__nav--next"
+      data-carousel-next
+      aria-label="Следующие"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
+  </div>
+</section>
+{% endif %}

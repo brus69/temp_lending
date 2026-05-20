@@ -1,4 +1,5 @@
-<header class="border-b border-slate-200 bg-white">
+<header class="bg-white">
+  <div class="vi-header-top-bar fixed inset-x-0 top-0 z-40 border-b border-slate-200 bg-white">
   <div class="mx-auto flex w-full max-w-[1240px] items-center justify-between px-4 py-2 text-xs text-slate-600">
     <div class="flex items-center gap-5">
       <button
@@ -8,18 +9,20 @@
       >
         <span data-city-label>Москва</span>
       </button>
-      <span class="vi-top-link">323 магазина</span>
     </div>
     <div class="hidden items-center gap-5 lg:flex">
-      <span class="vi-top-link">Получение и оплата</span>
-      <span class="vi-top-link">Сервис и поддержка</span>
-      <span class="vi-top-link">О нас</span>
+      {% for link in header_top_links %}
+      <a href="{{ link.get_absolute_url }}" class="vi-top-link">{{ link.title }}</a>
+      {% endfor %}
     </div>
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
       <a href="mailto:zakaz@test.com" class="text-slate-600 hover:text-slate-900">email: zakaz@test.com</a>
       <span class="font-semibold text-slate-900">8 800 550-37-70</span>
     </div>
   </div>
+  </div>
+  <div class="vi-header-top-bar-spacer" aria-hidden="true"></div>
+  <div class="border-b border-slate-200">
   <div class="relative mx-auto flex w-full max-w-[1240px] items-center gap-3 px-4 py-3">
     <a href="/" class="rounded-xl bg-red-600 px-4 py-2 text-lg font-bold leading-none text-white">{{ store_name }}</a>
     <button type="button" data-catalog-toggle class="rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white">Каталог</button>
@@ -113,6 +116,7 @@
     </a>
     {% endfor %}
     <button type="button" class="ml-auto whitespace-nowrap rounded-full bg-slate-100 px-4 py-1">Для юрлиц</button>
+  </div>
   </div>
 </header>
 {% if not request.user.is_authenticated %}

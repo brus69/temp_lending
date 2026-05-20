@@ -1,0 +1,29 @@
+{% if product_expert_manager %}
+<aside class="vi-expert-help" aria-label="Помощь эксперта">
+  <div class="vi-expert-help__media">
+    <img
+      src="{{ product_expert_manager.primary_photo_url }}"
+      alt="{{ product_expert_manager.name }}"
+      class="vi-expert-help__photo"
+      width="120"
+      height="130"
+      loading="lazy"
+    >
+  </div>
+  <div class="vi-expert-help__body">
+    <p class="vi-expert-help__title">Помощь эксперта</p>
+    <p class="vi-expert-help__contact">
+      <a href="tel:{{ product_expert_manager.display_phone_tel }}" class="vi-expert-help__phone-link">
+        {{ product_expert_manager.display_phone }}, {{ product_expert_manager.name }}
+      </a>
+    </p>
+    <button
+      type="button"
+      data-expert-request-open
+      class="vi-expert-help__btn"
+    >
+      Заказать звонок
+    </button>
+  </div>
+</aside>
+{% endif %}
